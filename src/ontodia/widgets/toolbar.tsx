@@ -11,6 +11,7 @@ export interface Props {
     onZoomToFit: () => void;
     onUndo: () => void;
     onRedo: () => void;
+    onExport: () => void;
     onExportSVG: (link: HTMLAnchorElement) => void;
     onExportPNG: (link: HTMLAnchorElement) => void;
     onPrint: () => void;
@@ -97,6 +98,10 @@ export class EditorToolbar extends React.Component<Props, State> {
                             <span className='fa fa-trash-o' aria-hidden='true'></span> Reset
                         </button>
                     ) : undefined}
+                    <button type='button' className='btn btn-default'
+                            onClick={this.props.onExport}>
+                        <span className='fa fa-file-text' aria-hidden='true' /> Export
+                    </button>
                     <button type='button' className='btn btn-default'
                             onClick={this.props.onForceLayout}>
                         <span className='fa fa-sitemap' aria-hidden='true' /> Layout

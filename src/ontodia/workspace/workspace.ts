@@ -20,6 +20,7 @@ import { EditorToolbar, Props as EditorToolbarProps } from '../widgets/toolbar';
 import { showTutorial, showTutorialIfNotSeen } from '../tutorial/tutorial';
 
 import WorkspaceMarkup from './workspaceMarkup';
+import {exportGraph} from "../diagram/graphExport";
 
 export interface Props {
     onSaveDiagram?: (workspace: Workspace) => void;
@@ -68,6 +69,7 @@ export class Workspace extends Component<Props, {}> {
                 onZoomOut: () => this.markup.paperArea.zoomBy(-0.2),
                 onZoomToFit: () => this.markup.paperArea.zoomToFit(),
                 onPrint: () => this.diagram.print(),
+                onExport: () => exportGraph(this.model),
                 onExportSVG: link => this.onExportSvg(link),
                 onExportPNG: link => this.onExportPng(link),
                 onShare: this.props.onShareDiagram ? () => this.props.onShareDiagram(this) : undefined,
