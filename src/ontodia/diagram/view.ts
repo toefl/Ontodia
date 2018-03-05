@@ -24,9 +24,9 @@ import { Dictionary, ElementModel, LocalizedString } from '../data/model';
 import { hashFnv32a } from '../data/utils';
 
 import { Element, Link, FatLinkType, FatClassModel, linkMarkerKey } from './elements';
-import { Size, boundsOf } from './geometry';
-import { DiagramModel, chooseLocalizedText, uri2name } from './model';
-import { isLinkVertex } from './paper';
+import { Vector, Size, boundsOf } from './geometry';
+import { Batch, Command } from './history';
+import { DiagramModel, restoreLinksBetweenElements, chooseLocalizedText, uri2name } from './model';
 import { PaperArea, PointerUpEvent } from './paperArea';
 
 export interface DiagramViewOptions {
@@ -166,12 +166,12 @@ export class DiagramView {
         if (elementsToRemove.length === 0) { return; }
 
         this.cancelSelection();
-        this.model.initBatchCommand();
+        
+        const batch = this.model.history.startBatch();
         for (const element of elementsToRemove) {
             this.model.removeElement(element.id);
         }
-        this.setSelection([]);
-        this.model.storeBatchCommand();
+        batch.store();
     }
 
     private onPaperPointerUp(event: PointerUpEvent) {
@@ -267,14 +267,14 @@ export class DiagramView {
         }
     }
 
-    onDragDrop(e: DragEvent, paperPosition: { x: number; y: number; }) {
+    onDragDrop(e: DragEvent, paperPosition: Vector) {
         e.preventDefault();
-        let elementIds: string[];
+        let elementIris: string[];
         try {
-            elementIds = JSON.parse(e.dataTransfer.getData('application/x-ontodia-elements'));
+            elementIris = JSON.parse(e.dataTransfer.getData('application/x-ontodia-elements'));
         } catch (ex) {
             try {
-                elementIds = JSON.parse(e.dataTransfer.getData('text')); // IE fix
+                elementIris = JSON.parse(e.dataTransfer.getData('text')); // IE fix
             } catch (ex) {
                 const draggedUri = e.dataTransfer.getData('text/uri-list');
                 // element dragged from the class tree has URI of the form:
@@ -282,51 +282,21 @@ export class DiagramView {
                 const uriFromTreePrefix = window.location.href.split('#')[0] + '#';
                 const uri = draggedUri.indexOf(uriFromTreePrefix) === 0
                     ? draggedUri.substring(uriFromTreePrefix.length) : draggedUri;
-                elementIds = [uri];
+                elementIris = [uri];
             }
         }
-        if (!elementIds || elementIds.length === 0) { return; }
+        if (!elementIris || elementIris.length === 0) { return; }
 
-        this.model.initBatchCommand();
+        const batch = this.model.history.startBatch('Drag and drop onto diagram');
+        const placedElements = placeElements(this.model, elementIris, paperPosition);
+        batch.execute(restoreLinksBetweenElements(this.model, elementIris));
+        batch.store();
 
-        let elementsToSelect: Element[] = [];
-
-        let totalXOffset = 0;
-        let {x, y} = paperPosition;
-        for (const elementId of elementIds) {
-            const center = elementIds.length === 1;
-            const {element, size} = this.createElementAt(elementId, {x: x + totalXOffset, y, center});
-            totalXOffset += size.width + 20;
-
-            elementsToSelect.push(element);
-            element.focus();
+        if (placedElements.length > 0) {
+            placedElements[placedElements.length - 1].focus();
         }
 
-        this.model.requestElementData(elementsToSelect);
-        this.model.requestLinksOfType();
-        this.setSelection(elementsToSelect);
-
-        this.model.storeBatchCommand();
-    }
-
-    private createElementAt(
-        elementId: string,
-        position: { x: number; y: number; center?: boolean; }
-    ): { element: Element, size: Size } {
-        const element = this.model.createElement(elementId);
-
-        let {x, y} = position;
-        let {width, height} = boundsOf(element);
-        if (width === 0) { width = 100; }
-        if (height === 0) { height = 50; }
-
-        if (position.center) {
-            x -= width / 2;
-            y -= height / 2;
-        }
-        element.setPosition({x, y});
-
-        return {element, size: {width, height}};
+        this.setSelection(placedElements);
     }
 
     /**
@@ -486,6 +456,45 @@ function fillLinkTemplateDefaults(template: LinkTemplate, model: DiagramModel) {
     if (!template.renderLink) {
         template.renderLink = () => ({});
     }
+}
+
+function placeElements(
+    model: DiagramModel, elementIris: ReadonlyArray<string>, position: Vector
+): Element[] {
+    const elements: Element[] = [];
+    let totalXOffset = 0;
+    let {x, y} = position;
+    for (const elementIri of elementIris) {
+        const center = elementIris.length === 1;
+        const {element, size} = createElementAt(
+            model, elementIri, {x: x + totalXOffset, y, center}
+        );
+        elements.push(element);
+        totalXOffset += size.width + 20;
+    }
+    return elements;
+}
+
+function createElementAt(
+    model: DiagramModel,
+    elementIri: string,
+    position: { x: number; y: number; center?: boolean; },
+    suggestedId?: string
+) {
+    const element = model.createElement(elementIri);
+
+    let {x, y} = position;
+    let {width, height} = boundsOf(element);
+    if (width === 0) { width = 100; }
+    if (height === 0) { height = 50; }
+
+    if (position.center) {
+        x -= width / 2;
+        y -= height / 2;
+    }
+    element.setPosition({x, y});
+
+    return {element, size: {width, height}};
 }
 
 export default DiagramView;

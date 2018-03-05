@@ -1,8 +1,8 @@
 import * as React from 'react';
 
 import { Dictionary, ElementModel } from '../data/model';
-import { Paper, Cell } from './paper';
-import { Element } from './elements';
+import { Paper } from './paper';
+import { Element, Cell } from './elements';
 import { ElementLayer, ElementContext, ElementContextTypes } from './elementLayer';
 import { EventObserver } from '../viewUtils/events';
 import {
@@ -109,13 +109,13 @@ export class EmbeddedLayer extends React.Component<{}, State> {
         const {view, element} = this.context.ontodiaElementContext;
 
         view.loadEmbeddedElements(element.iri).then(models => {
-            const elements = Object.keys(models)
-                .map(key => view.model.createElement(models[key], element.id));
+            const elementIris = Object.keys(models);
+            const elements = elementIris.map(key => view.model.createElement(models[key], element.id));
 
             elements.forEach(this.listenNestedElement);
 
             Promise.all([
-                view.model.requestElementData(elements),
+                view.model.requestElementData(elementIris),
                 view.model.requestLinksOfType(),
             ]).then(() => {
                 view.performSyncUpdate();

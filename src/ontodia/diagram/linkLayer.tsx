@@ -10,7 +10,8 @@ import { Debouncer } from '../viewUtils/async';
 import { createStringMap } from '../viewUtils/collections';
 import { EventObserver } from '../viewUtils/events';
 
-import { Element as DiagramElement, Link as DiagramLink, linkMarkerKey } from './elements';
+import { removeLinkVertex } from './commands';
+import { Element as DiagramElement, Link as DiagramLink, LinkVertex, linkMarkerKey } from './elements';
 import {
     Vector, computePolyline, computePolylineLength, getPointAlongPolyline,
 } from './geometry';
@@ -268,12 +269,20 @@ class LinkView extends Component<LinkViewProps, {}> {
                 <VertexTools key={index * 2 + 1}
                     className={`${LINK_CLASS}__vertex-tools`}
                     model={this.props.model} vertexIndex={index}
-                    vertexRadius={vertexRadius} x={x} y={y} />
+                    vertexRadius={vertexRadius} x={x} y={y}
+                    onRemove={this.onRemoveLinkVertex}
+                />
             );
             index++;
         }
 
         return <g className={`${LINK_CLASS}__vertices`}>{elements}</g>;
+    }
+
+    private onRemoveLinkVertex = (vertex: LinkVertex) => {
+        this.props.view.model.history.execute(
+            removeLinkVertex(vertex)
+        );
     }
 
     private renderLabels(polyline: ReadonlyArray<Vector>, style: LinkStyle) {
@@ -479,6 +488,7 @@ class VertexTools extends Component<{
     vertexRadius: number;
     x: number;
     y: number;
+    onRemove: (vertex: LinkVertex) => void;
 }, {}> {
     render() {
         const {className, vertexIndex, vertexRadius, x, y} = this.props;
@@ -496,10 +506,8 @@ class VertexTools extends Component<{
         if (e.button !== 0 /* left button */) { return; }
         e.preventDefault();
         e.stopPropagation();
-        const {model, vertexIndex} = this.props;
-        const vertices = [...model.vertices];
-        vertices.splice(vertexIndex, 1);
-        model.setVertices(vertices);
+        const {onRemove, model, vertexIndex} = this.props;
+        onRemove({link: model, vertexIndex});
     }
 }
 

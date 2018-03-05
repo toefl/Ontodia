@@ -16,6 +16,7 @@ import {
 } from './elements';
 import { Vector } from './geometry';
 import { Graph } from './graph';
+import { CommandHistory, Command } from './history';
 
 export interface DiagramModelEvents {
     loadingStart: { source: DiagramModel };
@@ -37,6 +38,7 @@ export interface DiagramModelEvents {
 export class DiagramModel {
     private readonly source = new EventSource<DiagramModelEvents>();
     readonly events: Events<DiagramModelEvents> = this.source;
+    readonly history = new CommandHistory(this);
 
     private graph = new Graph();
     private graphListener = new EventObserver();
@@ -83,12 +85,6 @@ export class DiagramModel {
     isSourceAndTargetVisible(link: Link): boolean {
         return Boolean(this.sourceOf(link) && this.targetOf(link));
     }
-
-    undo() { throw new Error('History is not implemented'); }
-    redo() { throw new Error('History is not implemented'); }
-    resetHistory() { /* TODO */ }
-    initBatchCommand() { /* TODO */ }
-    storeBatchCommand() { /* TODO */ }
 
     private resetGraph() {
         if (this.graphListener) {
@@ -241,7 +237,7 @@ export class DiagramModel {
             hideUnusedLinkTypes,
         } = params;
 
-        const elementToRequestData: Element[] = [];
+        const elementIrisToRequestData: string[] = [];
         const usedLinkTypes: { [typeId: string]: FatLinkType } = {};
 
         const normalizedCells = layoutData.cells.map(normalizeImportedCell);
@@ -253,7 +249,7 @@ export class DiagramModel {
                 const element = new Element({id, data, position, size, expanded: isExpanded, group});
                 this.graph.addElement(element);
                 if (!template) {
-                    elementToRequestData.push(element);
+                    elementIrisToRequestData.push(element.iri);
                 }
             }
         }
@@ -263,7 +259,7 @@ export class DiagramModel {
                 const {id, typeId, source, target, vertices} = cell;
                 const linkType = this.createLinkType(typeId);
                 usedLinkTypes[linkType.id] = linkType;
-                const link = this.graph.createLink({
+                const link = this.createLink({
                     data: {
                         linkTypeId: typeId,
                         sourceId: source.id,
@@ -279,7 +275,7 @@ export class DiagramModel {
         }
 
         this.subscribeGraph();
-        this.requestElementData(elementToRequestData);
+        this.requestElementData(elementIrisToRequestData);
 
         if (hideUnusedLinkTypes && params.allLinkTypes) {
             this.hideUnusedLinkTypes(params.allLinkTypes, usedLinkTypes);
@@ -302,11 +298,11 @@ export class DiagramModel {
         }
     }
 
-    requestElementData(elements: Element[]): Promise<void> {
-        if (elements.length === 0) {
+    requestElementData(elementIris: ReadonlyArray<string>): Promise<void> {
+        if (elementIris.length === 0) {
             return Promise.resolve();
         }
-        return this.dataProvider.elementInfo({elementIds: elements.map(e => e.iri)})
+        return this.dataProvider.elementInfo({elementIds: [...elementIris]})
             .then(models => this.onElementInfoLoaded(models))
             .catch(err => {
                 console.error(err);
@@ -398,12 +394,20 @@ export class DiagramModel {
             ? placeholderTemplateFromIri(elementIri) : elementIriOrModel;
         data = {...data, id: data.id};
         const element = new Element({id: `element_${generate64BitID()}`, data, group});
-        this.graph.addElement(element);
+        this.history.execute(
+            addElement(this.graph, element, [])
+        );
+
         return element;
     }
 
     removeElement(elementId: string) {
-        this.graph.removeElement(elementId);
+        const element = this.getElement(elementId);
+        if (element) {
+            this.history.execute(
+                removeElement(this.graph, element)
+            );
+        }
     }
 
     createLinkType(linkTypeId: string): FatLinkType {
@@ -458,12 +462,10 @@ export class DiagramModel {
     }
 
     private onLinkInfoLoaded(links: LinkModel[]) {
-        this.initBatchCommand();
         for (const linkModel of links) {
             const linkType = this.createLinkType(linkModel.linkTypeId);
             this.createLinks(linkModel, linkType);
         }
-        this.storeBatchCommand();
     }
 
     private createLinks(linkModel: LinkModel, linkType: FatLinkType) {
@@ -474,9 +476,38 @@ export class DiagramModel {
         for (const source of sources) {
             for (const target of targets) {
                 const data = {...linkModel, sourceId: source.id, targetId: target.id};
-                this.graph.createLink({data, linkType});
+                this.createLink({data, linkType});
             }
         }
+    }
+
+    private createLink(params: {
+        data: LinkModel;
+        linkType: FatLinkType;
+        vertices?: ReadonlyArray<Vector>;
+    }): Link {
+        const {data, linkType, vertices} = params;
+        if (data.linkTypeId !== linkType.id) {
+            throw new Error('linkTypeId must match linkType.id');
+        }
+
+        const existingLink = this.findLink(data);
+        if (existingLink) {
+            existingLink.setLayoutOnly(false);
+            return existingLink;
+        }
+
+        const shouldBeVisible = linkType.visible
+            && this.getElement(data.sourceId)
+            && this.getElement(data.targetId);
+
+        if (!shouldBeVisible) {
+            return undefined;
+        }
+
+        const link = new Link({id: `link_${generate64BitID()}`, data, vertices});
+        this.graph.addLink(link);
+        return link;
     }
 }
 
@@ -486,11 +517,37 @@ export interface LinkTypeOptions {
     showLabel?: boolean;
 }
 
+function addElement(graph: Graph, element: Element, connectedLinks: ReadonlyArray<Link>): Command {
+    return Command.create('Add element', () => {
+        graph.addElement(element);
+        for (const link of connectedLinks) {
+            if (graph.getLink(link.id)) { continue; }
+            graph.addLink(link);
+        }
+        return removeElement(graph, element);
+    });
+}
+
+function removeElement(graph: Graph, element: Element): Command {
+    return Command.create('Remove element', () => {
+        const connectedLinks = [...element.links];
+        graph.removeElement(element.id);
+        return addElement(graph, element, connectedLinks);
+    });
+}
+
+export function restoreLinksBetweenElements(model: DiagramModel, elementIris: ReadonlyArray<string>): Command {
+    return Command.effect('Restore links between elements', () => {
+        model.requestElementData(elementIris);
+        model.requestLinksOfType();
+    });
+}
+
 function placeholderTemplateFromIri(iri: string): ElementModel {
     return {
         id: iri,
         types: [],
-        label: {values: [{lang: '', text: uri2name(iri)}]},
+        label: {values: []},
         properties: {},
     };
 }

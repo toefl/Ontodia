@@ -8,6 +8,8 @@ export interface ToolbarProps {
     onZoomIn?: () => void;
     onZoomOut?: () => void;
     onZoomToFit?: () => void;
+    undo?: ToolbarCommand;
+    redo?: ToolbarCommand;
     onExportSVG?: (fileName?: string) => void;
     onExportPNG?: (fileName?: string) => void;
     onPrint?: () => void;
@@ -20,6 +22,12 @@ export interface ToolbarProps {
     onLeftPanelToggle?: () => void;
     isRightPanelOpen?: boolean;
     onRightPanelToggle?: () => void;
+}
+
+export interface ToolbarCommand {
+    readonly enabled: boolean;
+    readonly title: string;
+    readonly invoke: () => void;
 }
 
 const CLASS_NAME = 'ontodia-toolbar';
@@ -105,6 +113,7 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
     }
 
     render() {
+        const {undo, redo} = this.props;
         const intro = '<h4>Toolbox</h4>' +
             '<p>You can use additional tools for working with your diagram, such as choosing between automatic ' +
             'layouts or fit diagram to screen, etc.</p>' +
@@ -130,6 +139,14 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
                     <button type='button' className='ontodia-btn ontodia-btn-default'
                             title='Fit to Screen' onClick={this.props.onZoomToFit}>
                         <span className='fa fa-arrows-alt' aria-hidden='true'/>
+                    </button>
+                    <button type='button' className='ontodia-btn ontodia-btn-default'
+                            title={undo.title} disabled={!undo.enabled} onClick={undo.invoke}>
+                        <span className='fa fa-undo' aria-hidden='true'/>
+                    </button>
+                    <button type='button' className='ontodia-btn ontodia-btn-default'
+                            title={redo.title} disabled={!redo.enabled} onClick={redo.invoke}>
+                        <span className='fa fa-rotate-right' aria-hidden='true'/>
                     </button>
                     <button type='button' className='ontodia-btn ontodia-btn-default'
                             title='Export diagram as PNG' onClick={this.onExportPNG}>

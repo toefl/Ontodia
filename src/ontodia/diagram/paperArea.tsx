@@ -6,12 +6,14 @@ import { EventObserver, Events, EventSource, PropertyChange } from '../viewUtils
 import { Spinner, Props as SpinnerProps } from '../viewUtils/spinner';
 import { ToSVGOptions, ToDataURLOptions, toSVG, toDataURL, fitRectKeepingAspectRatio } from '../viewUtils/toSvg';
 
-import { Element, Link } from './elements';
+import { createLinkVertex, makeCellMove } from './commands';
+import { Element, Link, Cell, LinkVertex, isLinkVertex } from './elements';
 import { ElementLayer } from './elementLayer';
 import { Vector, computePolyline, findNearestSegmentIndex } from './geometry';
+import { Batch } from './history';
 import { DiagramModel } from './model';
 import { DiagramView, RenderingLayer } from './view';
-import { Paper, Cell, LinkVertex, isLinkVertex } from './paper';
+import { Paper } from './paper';
 
 export interface Props {
     view: DiagramView;
@@ -69,11 +71,13 @@ export interface State {
 interface PointerMoveState {
     pointerMoved: boolean;
     target: Cell | undefined;
+    targetOrigin: Vector | undefined;
     panning: boolean;
     origin: {
         readonly pageX: number;
         readonly pageY: number;
     };
+    batch: Batch;
 }
 
 const CLASS_NAME = 'ontodia-paper-area';
@@ -344,26 +348,28 @@ export class PaperArea extends React.Component<Props, State> {
     private onPaperPointerDown = (e: React.MouseEvent<HTMLElement>, cell: Cell | undefined) => {
         if (this.movingState) { return; }
 
+        const batch = this.props.view.model.history.startBatch('Pointer action');
+
         if (cell && e.button === LEFT_MOUSE_BUTTON) {
             if (cell instanceof Element) {
                 e.preventDefault();
                 this.startMoving(e, cell);
-                this.listenToPointerMove(e, cell);
+                this.listenToPointerMove(e, cell, batch);
             } else if (cell instanceof Link) {
                 e.preventDefault();
                 const location = this.pageToPaperCoords(e.pageX, e.pageY);
-                const vertexIndex = this.createLinkVertex(cell, location);
-                const targetCell = {link: cell, vertexIndex};
-                this.listenToPointerMove(e, targetCell);
+                const linkVertex = this.generateLinkVertex(cell, location);
+                batch.execute(createLinkVertex(linkVertex, location));
+                this.listenToPointerMove(e, linkVertex, batch);
                 // prevent click on newly created vertex
                 this.movingState.pointerMoved = true;
             } else if (isLinkVertex(cell)) {
                 e.preventDefault();
-                this.listenToPointerMove(e, cell);
+                this.listenToPointerMove(e, cell, batch);
             }
         } else {
             e.preventDefault();
-            this.listenToPointerMove(e, undefined);
+            this.listenToPointerMove(e, undefined, batch);
         }
     }
 
@@ -395,8 +401,7 @@ export class PaperArea extends React.Component<Props, State> {
         }
     }
 
-    /** @returns created vertex index */
-    private createLinkVertex(link: Link, location: Vector) {
+    private generateLinkVertex(link: Link, location: Vector): LinkVertex {
         const previous = link.vertices;
         const vertices = previous ? [...previous] : [];
         const model = this.props.view.model;
@@ -406,12 +411,10 @@ export class PaperArea extends React.Component<Props, State> {
             vertices,
         );
         const segmentIndex = findNearestSegmentIndex(polyline, location);
-        vertices.splice(segmentIndex, 0, location);
-        link.setVertices(vertices);
-        return segmentIndex;
+        return {link, vertexIndex: segmentIndex};
     }
 
-    private listenToPointerMove(event: React.MouseEvent<any>, cell: Cell | undefined) {
+    private listenToPointerMove(event: React.MouseEvent<any>, cell: Cell | undefined, batch: Batch) {
         if (this.movingState) { return; }
         const panning = cell === undefined && this.shouldStartPanning(event);
         if (panning) {
@@ -420,9 +423,11 @@ export class PaperArea extends React.Component<Props, State> {
         const {pageX, pageY} = event;
         this.movingState = {
             origin: {pageX, pageY},
+            targetOrigin: cell ? Cell.getPosition(cell) : undefined,
             target: cell,
             panning,
             pointerMoved: false,
+            batch,
         };
         document.addEventListener('mousemove', this.onPointerMove);
         document.addEventListener('mouseup', this.stopListeningToPointerMove);
@@ -450,19 +455,15 @@ export class PaperArea extends React.Component<Props, State> {
         } else if (target instanceof Element) {
             const {x, y} = this.pageToPaperCoords(e.pageX, e.pageY);
             const {pointerX, pointerY, elementX, elementY} = this.movingElementOrigin;
-            const previous = target.position;
-            target.setPosition({
+            Cell.move(target, {
                 x: elementX + x - pointerX,
                 y: elementY + y - pointerY,
             });
             this.source.trigger('pointerMove', {source: this, sourceEvent: e, target, panning});
             this.props.view.performSyncUpdate();
         } else if (isLinkVertex(target)) {
-            const {link, vertexIndex} = target;
             const location = this.pageToPaperCoords(e.pageX, e.pageY);
-            const vertices = [...link.vertices];
-            vertices.splice(vertexIndex, 1, location);
-            link.setVertices(vertices);
+            Cell.move(target, location);
             this.source.trigger('pointerMove', {source: this, sourceEvent: e, target, panning});
             this.props.view.performSyncUpdate();
         }
@@ -478,13 +479,18 @@ export class PaperArea extends React.Component<Props, State> {
         }
 
         if (e && movingState) {
+            const {pointerMoved, target, targetOrigin, batch} = movingState;
+            if (pointerMoved && target && targetOrigin) {
+                batch.registerToUndo(makeCellMove(target, targetOrigin));
+            }
             this.source.trigger('pointerUp', {
                 source: this,
                 sourceEvent: e,
-                target: movingState.target,
+                target,
                 panning: movingState.panning,
-                triggerAsClick: !movingState.pointerMoved,
+                triggerAsClick: !pointerMoved,
             });
+            batch.store();
         }
     }
 

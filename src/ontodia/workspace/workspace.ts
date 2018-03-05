@@ -1,8 +1,11 @@
 import { Component, createElement, ReactElement, cloneElement } from 'react';
 import * as ReactDOM from 'react-dom';
+import { first, last } from 'lodash';
 
+import { makeCellMove, setLinkVertices } from '../diagram/commands';
 import { Element, Link, FatLinkType } from '../diagram/elements';
 import { boundsOf } from '../diagram/geometry';
+import { Batch, Command, CommandHistory } from '../diagram/history';
 import { DiagramModel } from '../diagram/model';
 import { PaperArea, ZoomOptions, PointerEvent, PointerUpEvent, getContentFittingBox } from '../diagram/paperArea';
 import { DiagramView, DiagramViewOptions } from '../diagram/view';
@@ -111,38 +114,6 @@ export class Workspace extends Component<WorkspaceProps, State> {
         return this.markup ? this.markup.paperArea : undefined;
     }
 
-    private getToolbar = () => {
-        const {languages, onSaveDiagram, hidePanels, toolbar} = this.props;
-        return cloneElement(
-            toolbar || createElement<DefaultToolbarProps>(DefaultToolbar), {
-                onZoomIn: this.zoomIn,
-                onZoomOut: this.zoomOut,
-                onZoomToFit: this.zoomToFit,
-                onPrint: this.print,
-                onExportSVG: this.exportSvg,
-                onExportPNG: this.exportPng,
-                onSaveDiagram: onSaveDiagram ? () => onSaveDiagram(this) : undefined,
-                onForceLayout: () => {
-                    this.forceLayout();
-                    this.zoomToFit();
-                },
-                languages,
-                selectedLanguage: this.diagram.getLanguage(),
-                onChangeLanguage: this.changeLanguage,
-                onShowTutorial: this.showTutorial,
-                hidePanels,
-                isLeftPanelOpen: this.state.isLeftPanelOpen,
-                onLeftPanelToggle: () => {
-                    this.setState(prevState => ({isLeftPanelOpen: !prevState.isLeftPanelOpen}));
-                },
-                isRightPanelOpen: this.state.isRightPanelOpen,
-                onRightPanelToggle: () => {
-                    this.setState(prevState => ({isRightPanelOpen: !prevState.isRightPanelOpen}));
-                },
-            },
-        );
-    }
-
     render(): ReactElement<any> {
         const {languages, toolbar, hidePanels, hideToolbar, onSaveDiagram} = this.props;
         return createElement(WorkspaceMarkup, {
@@ -160,7 +131,12 @@ export class Workspace extends Component<WorkspaceProps, State> {
             onToggleLeftPanel: isLeftPanelOpen => this.setState({isLeftPanelOpen}),
             isRightPanelOpen: this.state.isRightPanelOpen,
             onToggleRightPanel: isRightPanelOpen => this.setState({isRightPanelOpen}),
-            toolbar: this.getToolbar(),
+            toolbar: createElement(ToolbarWrapper, {
+                ...this.props,
+                workspace: this,
+                history: this.model.history,
+                view: this.diagram,
+            }),
         } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }
 
@@ -218,11 +194,11 @@ export class Workspace extends Component<WorkspaceProps, State> {
         this.markup.paperArea.showIndicator(promise);
     }
 
-    private forceLayoutElements = (elements: Element[], group?: Element) => {
+    private forceLayoutElements = (batch: Batch, elements: Element[], group?: Element) => {
         for (const element of elements) {
             const nestedNodes = this.model.elements.filter(el => el.group === element.id);
             if (nestedNodes.length > 0) {
-                this.forceLayoutElements(nestedNodes, element);
+                this.forceLayoutElements(batch, nestedNodes, element);
             }
         }
 
@@ -261,18 +237,28 @@ export class Workspace extends Component<WorkspaceProps, State> {
         translateToPositiveQuadrant({nodes, padding});
 
         for (const node of nodes) {
-            this.model.getElement(node.id).setPosition({x: node.x, y: node.y});
+            const element = this.model.getElement(node.id);
+            batch.execute(makeCellMove(element, {x: node.x, y: node.y}));
         }
     }
 
     forceLayout = () => {
+        const syncAndZoom = Command.effect('Sync and zoom to fit', () => {
+            this.diagram.performSyncUpdate();
+            this.zoomToFit();
+        });
+
+        const batch = this.model.history.startBatch('Force layout');
+        batch.registerToUndo(syncAndZoom);
+
         const elements = this.model.elements.filter(element => element.group === undefined);
-        this.forceLayoutElements(elements);
+        this.forceLayoutElements(batch, elements);
         for (const link of this.model.links) {
-            link.setVertices([]);
+            batch.execute(setLinkVertices(link, []));
         }
 
-        this.diagram.performSyncUpdate();
+        batch.execute(syncAndZoom);
+        batch.store();
     }
 
     exportSvg = (fileName?: string) => {
@@ -293,11 +279,11 @@ export class Workspace extends Component<WorkspaceProps, State> {
     }
 
     undo = () => {
-        this.model.undo();
+        this.model.history.undo();
     }
 
     redo = () => {
-        this.model.redo();
+        this.model.history.redo();
     }
 
     zoomBy = (value: number) => {
@@ -337,6 +323,75 @@ export class Workspace extends Component<WorkspaceProps, State> {
 
     showTutorial = () => {
         showTutorial();
+    }
+}
+
+interface ToolbarWrapperProps extends WorkspaceProps {
+    workspace: Workspace;
+    history: CommandHistory;
+    view: DiagramView;
+}
+
+class ToolbarWrapper extends Component<ToolbarWrapperProps, {}> {
+    private readonly listener = new EventObserver();
+    
+    componentDidMount() {
+        this.listener.listen(this.props.history.events, 'changeStacks', () => {
+            // update undo/redo button status
+            this.forceUpdate();
+        });
+    }
+
+    componentWillUnmount() {
+        this.listener.stopListening();
+    }
+
+    render() {
+        const {languages, onSaveDiagram, hidePanels, toolbar, workspace, history, view} = this.props;
+
+        const undoCommand = last(history.undoStack);
+        const redoCommand = first(history.redoStack);
+
+        const toolbarProps: DefaultToolbarProps = {
+            onZoomIn: workspace.zoomIn,
+            onZoomOut: workspace.zoomOut,
+            onZoomToFit: workspace.zoomToFit,
+            onPrint: workspace.print,
+            undo: {
+                title: (undoCommand && undoCommand.title) ? `Undo ${undoCommand.title}` : 'Undo',
+                enabled: Boolean(undoCommand),
+                invoke: () => history.undo(),
+            },
+            redo: {
+                title: (redoCommand && redoCommand.title) ? `Redo ${redoCommand.title}` : 'Redo',
+                enabled: Boolean(redoCommand),
+                invoke: () => history.redo(),
+            },
+            onExportSVG: workspace.exportSvg,
+            onExportPNG: workspace.exportPng,
+            onSaveDiagram: onSaveDiagram ? () => onSaveDiagram(workspace) : undefined,
+            onForceLayout: () => {
+                workspace.forceLayout();
+                workspace.zoomToFit();
+            },
+            languages,
+            selectedLanguage: view.getLanguage(),
+            onChangeLanguage: workspace.changeLanguage,
+            onShowTutorial: workspace.showTutorial,
+            hidePanels,
+            isLeftPanelOpen: workspace.state.isLeftPanelOpen,
+            onLeftPanelToggle: () => {
+                workspace.setState(prevState => ({isLeftPanelOpen: !prevState.isLeftPanelOpen}));
+            },
+            isRightPanelOpen: workspace.state.isRightPanelOpen,
+            onRightPanelToggle: () => {
+                workspace.setState(prevState => ({isRightPanelOpen: !prevState.isRightPanelOpen}));
+            },
+        };
+        return cloneElement(
+            toolbar || createElement<DefaultToolbarProps>(DefaultToolbar),
+            toolbarProps
+        );
     }
 }
 

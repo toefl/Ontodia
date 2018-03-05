@@ -409,3 +409,42 @@ export class FatLinkType {
         this.source.trigger('changeIsNew', {source: this, previous});
     }
 }
+
+export type Cell = Element | Link | LinkVertex;
+
+export interface LinkVertex {
+    link: Link;
+    vertexIndex: number;
+}
+
+export function isLinkVertex(cell: Cell | undefined): cell is LinkVertex {
+    return cell && typeof cell === 'object'
+        && 'link' in cell
+        && 'vertexIndex' in cell;
+}
+
+export namespace Cell {
+    export function getPosition(target: Cell): Vector {
+        if (target instanceof Element) {
+            return target.position;
+        } else if (isLinkVertex(target)) {
+            const {link, vertexIndex} = target;
+            return link.vertices[vertexIndex];
+        } else {
+            throw new Error('Unexpected cell to get location of');
+        }
+    }
+
+    export function move(target: Cell, location: Vector): void {
+        if (target instanceof Element) {
+            target.setPosition(location);
+        } else if (isLinkVertex(target)) {
+            const {link, vertexIndex} = target;
+            const vertices = [...link.vertices];
+            vertices.splice(vertexIndex, 1, location);
+            link.setVertices(vertices);
+        } else {
+            throw new Error('Unexpected cell to move');
+        }
+    }
+}

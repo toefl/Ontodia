@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { Component, SVGAttributes, CSSProperties } from 'react';
 
-import { Element as DiagramElement, Link as DiagramLink } from './elements';
+import { Cell, Element as DiagramElement, Link as DiagramLink } from './elements';
+import { Vector } from './geometry';
 import { LinkLayer, LinkMarkers } from './linkLayer';
 import { DiagramModel } from './model';
 import { DiagramView } from './view';
@@ -18,8 +19,6 @@ export interface PaperProps {
     onPointerDown?: (e: React.MouseEvent<HTMLElement>, cell: Cell | undefined) => void;
     group?: string;
 }
-
-export type Cell = DiagramElement | DiagramLink | LinkVertex;
 
 const CLASS_NAME = 'ontodia-paper';
 
@@ -62,17 +61,6 @@ export class Paper extends Component<PaperProps, void> {
             onPointerDown(e, cell);
         }
     }
-}
-
-export interface LinkVertex {
-    link: DiagramLink;
-    vertexIndex: number;
-}
-
-export function isLinkVertex(cell: Cell | undefined): cell is LinkVertex {
-    return cell && typeof cell === 'object'
-        && 'link' in cell
-        && 'vertexIndex' in cell;
 }
 
 function findCell(bottom: Element, top: Element, model: DiagramModel): Cell | undefined {
