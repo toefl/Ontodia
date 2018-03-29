@@ -109,7 +109,7 @@ function onWorkspaceMounted(wspace: Workspace) {
 
     const layoutData = tryLoadLayoutFromLocalStorage();
     const dataProvider = new SparqlDataProvider({
-        endpointUrl: '/sparql-endpoint',
+        endpointUrl: '/sparql',
         imagePropertyUris: [
             'http://www.wikidata.org/prop/direct/P18',
             'http://www.wikidata.org/prop/direct/P154',
