@@ -20,11 +20,9 @@
     border-top: 1px solid rgb(221, 221, 221);
   }
 
-  .jstree-icon.default-tree-icon::after {
-    content: url("../images/tree-leaf.png");
-    max-width: 19px;
-    max-height: 19px;
-    margin: 2px;
+  &__elements {
+    margin-left: -20px;
+    list-style-type: none;
   }
 
   .ontodia-icon {
@@ -35,10 +33,70 @@
     vertical-align: middle;
   }
 
-  .jstree-icon.parent-tree-icon::after {
-    content: url("../images/tree-leaf-folder.png");
-    max-width: 19px;
-    max-height: 19px;
-    margin: 2px;
+  .parent-tree-icon {
+    white-space: nowrap;
+    width: fit-content;
+    padding: 2px 10px 2px 2px;
+    border-radius: 10px;
+    &:hover {
+      background: #dcebff91;
+      cursor: pointer;
+    }
+    &::before {
+      content: url("../images/tree-leaf-folder.png");
+      max-width: 19px;
+      max-height: 19px;
+      margin: 2px;
+      position: relative;
+      top: 2px;
+    }
+  }
+
+  .default-tree-icon {
+    white-space: nowrap;
+    width: fit-content;
+    padding: 2px 10px 2px 2px;
+    border-radius: 10px;
+    &:hover {
+      background: #dcebff91;
+      cursor: pointer;  
+    }
+    &::before {
+      content: url("../images/tree-leaf.png");
+      max-width: 19px;
+      max-height: 19px;
+      margin: 2px;
+      position: relative;
+      top: 2px;
+    }
+  }
+  
+  .collapse-node-icon {
+    position: relative;
+    top: 12px;
+    right: 1px;
+    max-width: 9px;
+    max-height: 9px;
+    float: left;
+    margin-left: -6px;
+    content: url("../images/expand-properties.png");
+    &:hover {
+      background: #dcebff91;
+      cursor: pointer;
+    }
+  }
+  .expand-node-icon {
+    position: relative;
+    top: 12px;
+    right: 1px;
+    max-width: 9px;
+    max-height: 9px;
+    float: left;
+    margin-left: -6px;
+    content: url("../images/collapse-properties.png");
+    &:hover {
+      background: #dcebff91;
+      cursor: pointer;
+    }
   }
 }
