@@ -61,15 +61,14 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
                             resultIds={this.state.resultIds} lang={this.state.lang}
-                            onClassSelected={this.props.onClassSelected} view={this.props.view}/>
+                            onClassSelected={this.props.onClassSelected} view={this.props.view} />
                     </div>
                 </div>
             </div>
         );
     }
     private onSearchKeyup = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        const searchString = e.currentTarget.value;
-        this.search(searchString);
+        this.search(e.currentTarget.value);
     }
     private search = (searchString: string): void => {
         if (searchString.trim().length === 0) {
@@ -79,9 +78,10 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             return;
         }
         let result: Array<FatClassModel> = [];
-        for (let i = 0; i < this.state.roots.length; i++) {
-            this.deepSearch(searchString, this.state.roots[i], result);
-        }
+        this.state.roots.forEach(element => {
+            this.deepSearch(searchString, element, result);
+        });
+
         this.setState({ resultIds: this.printNodesIds(result), searchString: searchString });
     }
     private deepSearch = (searchString: string, node: FatClassModel, result: Array<FatClassModel>): void => {
@@ -89,8 +89,12 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
             result.push(node);
         }
-        if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-            result.push(node);
+        try { // data from dbpedia does not contain information about the label and count 
+            if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
+                result.push(node);
+            }
+        } catch (e) {
+            //console.error("class.count === undefined. The search for count will be ignored.");
         }
         for (let i = 0; i < node.derived.length; i++) {
             this.deepSearch(searchString, node.derived[i], result);

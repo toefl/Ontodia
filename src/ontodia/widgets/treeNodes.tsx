@@ -65,7 +65,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
                         <Node node={element} resultIds={resultIds} lang={lang} view={this.props.view}
-                        searchString={searchString} onClassSelected={onClassSelected} />
+                            searchString={searchString} onClassSelected={onClassSelected} />
                     </div>
                 ))}
             </ul>

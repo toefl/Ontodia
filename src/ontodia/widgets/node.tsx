@@ -84,8 +84,12 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                     bold = true;
                 }
             }
-            if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-                bold = true;
+            try { // data from dbpedia does not contain information about the label and count 
+                if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
+                    bold = true;
+                }
+            } catch (err) {
+                //console.error("class.count === undefined. The search for count will be ignored.");
             }
         }
         return (
@@ -104,7 +108,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                             }
                             return false
                         }}>
-                        {formatLocalizedLabel(node.id, node.label, lang) + ' (' + node.count + ')'}
+                        {formatLocalizedLabel(node.id, node.label, lang) + (node.count ? ('( ' + node.count + ' )') : '')}
                     </li>
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected}
