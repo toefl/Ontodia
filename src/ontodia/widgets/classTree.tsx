@@ -1,7 +1,6 @@
 import * as React from 'react';
 import * as _ from 'lodash';
 
-import { Dictionary, LocalizedString } from '../data/model';
 import { FatClassModel } from '../diagram/elements';
 import { DiagramView } from '../diagram/view';
 import { EventObserver } from '../viewUtils/events';
@@ -62,7 +61,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
                             resultIds={this.state.resultIds} lang={this.state.lang}
-                            onClassSelected={this.props.onClassSelected} />
+                            onClassSelected={this.props.onClassSelected} view={this.props.view}/>
                     </div>
                 </div>
             </div>
@@ -79,10 +78,9 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             }
             return;
         }
-        let roots: Array<FatClassModel> = this.props.view.model.getClasses().filter(model => !model.base);
         let result: Array<FatClassModel> = [];
-        for (let i = 0; i < roots.length; i++) {
-            this.deepSearch(searchString, roots[i], result);
+        for (let i = 0; i < this.state.roots.length; i++) {
+            this.deepSearch(searchString, this.state.roots[i], result);
         }
         this.setState({ resultIds: this.printNodesIds(result), searchString: searchString });
     }

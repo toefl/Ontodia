@@ -1,11 +1,9 @@
 import * as React from 'react';
 import * as _ from 'lodash';
 
-import { Dictionary, LocalizedString } from '../data/model';
 import { FatClassModel } from '../diagram/elements';
-import { DiagramView } from '../diagram/view';
-import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
+import { DiagramView } from '../diagram/view';
 import { Node } from './node';
 
 export interface TreeNodesProps {
@@ -15,6 +13,7 @@ export interface TreeNodesProps {
     searchString?: string | undefined;
     lang?: Readonly<string> | undefined;
     onClassSelected: (classId: string) => void;
+    view: DiagramView;
 }
 
 const CLASS_NAME = 'ontodia-class-tree';
@@ -65,8 +64,8 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
             <ul className={`${CLASS_NAME}__elements`} style={{ display: expanded ? 'block' : 'none' }}>
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
-                        <Node node={element} resultIds={resultIds}
-                            lang={lang} searchString={searchString} onClassSelected={onClassSelected} />
+                        <Node node={element} resultIds={resultIds} lang={lang} view={this.props.view}
+                        searchString={searchString} onClassSelected={onClassSelected} />
                     </div>
                 ))}
             </ul>

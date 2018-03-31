@@ -1,11 +1,9 @@
 import * as React from 'react';
 import * as _ from 'lodash';
 
-import { Dictionary, LocalizedString } from '../data/model';
 import { FatClassModel } from '../diagram/elements';
-import { DiagramView } from '../diagram/view';
-import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
+import { DiagramView } from '../diagram/view';
 import { TreeNodes } from './treeNodes';
 
 export interface NodeTreeProps {
@@ -14,6 +12,8 @@ export interface NodeTreeProps {
     resultIds?: Array<string> | undefined;
     searchString?: string | undefined;
     onClassSelected: (classId: string) => void;
+    view: DiagramView;
+    onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
 }
 
 interface ClassTreeState {
@@ -31,6 +31,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         this.toggle = this.toggle.bind(this);
         this.showInstances = this.showInstances.bind(this);
     }
+    private node: HTMLDivElement;
 
     componentWillReceiveProps(nextProps: NodeTreeProps) {
         const { resultIds } = nextProps;
@@ -40,8 +41,8 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         if (resultIds && resultIds.length !== 0) {
             this.setState({ expanded: Boolean(resultIds.find(id => id === this.props.node.id)) });
         }
-        if ( this.state.bgColor === 'rgb(190,235,255)' ) {
-            this.setState({bgColor: undefined});
+        if (this.state.bgColor === 'rgb(190,235,255)') {
+            this.setState({ bgColor: undefined });
         }
     }
 
@@ -50,7 +51,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     }
 
     showInstances() {
-        this.setState({bgColor: 'rgb(190,235,255)'});
+        this.setState({ bgColor: 'rgb(190,235,255)' });
         this.props.onClassSelected(this.props.node.id);
     }
 
@@ -89,14 +90,25 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
         return (
             <div>
-                <div className='container' role='treeitem'>
+                <div className='container' role='treeitem' >
                     <div className={this.getIcon()} onClick={this.toggle} />
                     <li className={this.hasChildren(node)} onClick={this.showInstances}
-                        style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}>
+                        style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
+                        draggable={true}
+                        onDragStart={e => {
+                            const elementId = [this.props.node.id];
+                            try {
+                                e.dataTransfer.setData('application/x-ontodia-elements', JSON.stringify(elementId));
+                            } catch (ex) { // IE fix
+                                e.dataTransfer.setData('text', JSON.stringify(elementId));
+                            }
+                            return false
+                        }}>
                         {formatLocalizedLabel(node.id, node.label, lang) + ' (' + node.count + ')'}
                     </li>
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
-                        searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
+                        searchString={searchString} lang={lang} onClassSelected={onClassSelected}
+                        view={this.props.view} />
                 </div>
             </div>
         );
