@@ -3,7 +3,6 @@ import * as _ from 'lodash';
 
 import { FatClassModel } from '../diagram/elements';
 import { formatLocalizedLabel } from '../diagram/model';
-import { DiagramView } from '../diagram/view';
 import { TreeNodes } from './treeNodes';
 
 export interface NodeTreeProps {
@@ -12,7 +11,6 @@ export interface NodeTreeProps {
     resultIds?: Array<string> | undefined;
     searchString?: string | undefined;
     onClassSelected: (classId: string) => void;
-    view: DiagramView;
     onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
 }
 
@@ -26,12 +24,15 @@ const CLASS_NAME = 'ontodia-class-tree';
 export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     constructor(props: NodeTreeProps) {
         super(props);
-
-        this.state = { expanded: false };
+        let resultEmpty = !(this.props.resultIds && this.props.resultIds.length !== 0);
+        if (resultEmpty) {
+            this.state = { expanded: false };
+        } else {
+            this.state = { expanded: true };
+        }
         this.toggle = this.toggle.bind(this);
         this.showInstances = this.showInstances.bind(this);
     }
-    private node: HTMLDivElement;
 
     componentWillReceiveProps(nextProps: NodeTreeProps) {
         const { resultIds } = nextProps;
@@ -55,8 +56,8 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         this.props.onClassSelected(this.props.node.id);
     }
 
-    hasChildren(node: FatClassModel): string {
-        if (node.derived.length !== 0) {
+    hasChildren(): string {
+        if (this.props.node.derived.length !== 0) {
             return 'parent-tree-icon';
         } else {
             return 'default-tree-icon';
@@ -78,13 +79,12 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         const { node, resultIds, searchString, lang, onClassSelected } = this.props;
         const bgColor = this.state.bgColor;
         let bold = false;
+        let classLabel = formatLocalizedLabel(node.id, node.label, lang);
         if (Boolean(resultIds) && resultIds.length !== 0) {
-            for (let i = 0; i < node.label.length; i++) {
-                if (node.label[i].text.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-                    bold = true;
-                }
+            if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
+                bold = true;
             }
-            try { // data from dbpedia does not contain information about the label and count
+            try { // FatClassModel from dbpedia does not contain information about count
                 if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
                     bold = true;
                 }
@@ -93,27 +93,24 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
             }
         }
         return (
-            <div>
-                <div className='container' role='treeitem' >
-                    <div className={this.getIcon()} onClick={this.toggle} />
-                    <li className={this.hasChildren(node)} onClick={this.showInstances}
-                        style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
-                        draggable={true}
-                        onDragStart={e => {
-                            const elementId = [this.props.node.id];
-                            try {
-                                e.dataTransfer.setData('application/x-ontodia-elements', JSON.stringify(elementId));
-                            } catch (ex) { // IE fix
-                                e.dataTransfer.setData('text', JSON.stringify(elementId));
-                            }
-                            return false;
-                        }}>
-                        {formatLocalizedLabel(node.id, node.label, lang) + (node.count ? ('(' + node.count + ')') : '')}
-                    </li>
-                    <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
-                        searchString={searchString} lang={lang} onClassSelected={onClassSelected}
-                        view={this.props.view} />
-                </div>
+            <div className='container' role='treeitem' >
+                <div className={this.getIcon()} onClick={this.toggle} />
+                <li className={this.hasChildren()} onClick={this.showInstances}
+                    style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
+                    draggable={true}
+                    onDragStart={e => {
+                        const elementId = [node.id];
+                        try {
+                            e.dataTransfer.setData('application/x-ontodia-elements', JSON.stringify(elementId));
+                        } catch (ex) { // IE fix
+                            e.dataTransfer.setData('text', JSON.stringify(elementId));
+                        }
+                        return false;
+                    }}>
+                    {classLabel + (node.count ? (' (' + node.count + ')') : '')}
+                </li>
+                <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
+                    searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
             </div>
         );
     }

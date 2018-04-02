@@ -60,8 +60,8 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                 <div className={`${CLASS_NAME}__rest`}>
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
-                            resultIds={this.state.resultIds} lang={this.state.lang}
-                            onClassSelected={this.props.onClassSelected} view={this.props.view} />
+                            resultIds={this.state.resultIds} lang={this.props.view.getLanguage()}
+                            onClassSelected={this.props.onClassSelected} />
                     </div>
                 </div>
             </div>
@@ -73,13 +73,16 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
     private search = (searchString: string): void => {
         if (searchString.trim().length === 0) {
             if (this.state.resultIds) {
-                this.setState({ resultIds: undefined });
+                this.setState({ resultIds: undefined, searchString: '' });
             }
             return;
         }
+        if ( searchString === this.state.searchString ) {
+            return;
+        }
         let result: Array<FatClassModel> = [];
-        this.state.roots.forEach(element => {
-            this.deepSearch(searchString, element, result);
+        this.state.roots.forEach(node => {
+            this.deepSearch(searchString, node, result);
         });
         this.setState({ resultIds: this.printNodesIds(result), searchString: searchString });
     }
@@ -88,7 +91,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
             result.push(node);
         }
-        try { // data from dbpedia does not contain information about the label and count
+        try { // FatClassModel from dbpedia does not contain information about count
             if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
                 result.push(node);
             }

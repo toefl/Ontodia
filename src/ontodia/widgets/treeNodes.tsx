@@ -3,17 +3,15 @@ import * as _ from 'lodash';
 
 import { FatClassModel } from '../diagram/elements';
 import { formatLocalizedLabel } from '../diagram/model';
-import { DiagramView } from '../diagram/view';
 import { Node } from './node';
 
 export interface TreeNodesProps {
-    roots?: ReadonlyArray<FatClassModel> | undefined;
+    roots: ReadonlyArray<FatClassModel> | undefined;
     expanded?: Boolean;
-    resultIds?: Array<string> | undefined;
+    resultIds: Array<string> | undefined;
     searchString?: string | undefined;
     lang?: Readonly<string> | undefined;
     onClassSelected: (classId: string) => void;
-    view: DiagramView;
 }
 
 const CLASS_NAME = 'ontodia-class-tree';
@@ -49,9 +47,9 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
     }
     getRenderRoots() {
         let roots;
-        if (this.props.resultIds && this.props.resultIds.length === 0) {
+        if (this.props.resultIds && this.props.resultIds.length === 0) { // a search was performed. The result is empty.
             roots = this.props.roots;
-        } else {
+        } else { // need a filter for the displayed roots
             roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
         }
         return roots;
@@ -64,8 +62,8 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
             <ul className={`${CLASS_NAME}__elements`} style={{ display: expanded ? 'block' : 'none' }}>
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
-                        <Node node={element} resultIds={resultIds} lang={lang} view={this.props.view}
-                            searchString={searchString} onClassSelected={onClassSelected} />
+                        <Node node={element} resultIds={resultIds} searchString={searchString}
+                            onClassSelected={onClassSelected} />
                     </div>
                 ))}
             </ul>
