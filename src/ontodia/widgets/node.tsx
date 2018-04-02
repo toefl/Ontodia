@@ -109,8 +109,10 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                     }}>
                     {classLabel + (node.count !== undefined ? (' (' + node.count + ')') : '')}
                 </li>
-                <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
-                    searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
+                {node.derived && node.derived.length !== 0 ? (
+                    <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
+                        searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
+                ) : (null)}
             </div>
         );
     }

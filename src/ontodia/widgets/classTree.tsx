@@ -73,7 +73,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
     private search = (searchString: string): void => {
         if (searchString.trim().length === 0) {
             if (this.state.resultIds) {
-                this.setState({ resultIds: undefined, searchString: '' });
+                this.setState({ resultIds: undefined, searchString: undefined });
             }
             return;
         }
@@ -103,7 +103,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         }
     }
     private printNodesIds(result: FatClassModel[]): Array<string> {
-        let printNodesIds: Array<string> = result.map(e => e.id);
+        let printNodesIds: Array<string> = result.map(node => node.id);
         for (let i = 0; i < result.length; i++) {
             let tmp = result[i];
             while (tmp.base !== undefined) {

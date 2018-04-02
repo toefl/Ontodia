@@ -45,6 +45,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
             return 1;
         }
     }
+
     getRenderRoots() {
         let roots;
         if (this.props.resultIds && this.props.resultIds.length === 0) { // a search was performed. The result is empty.
@@ -54,6 +55,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
         }
         return roots;
     }
+    
     render() {
         let { expanded, resultIds, searchString, lang, onClassSelected } = this.props;
         const roots = this.getRenderRoots();
@@ -63,7 +65,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
                         <Node node={element} resultIds={resultIds} searchString={searchString}
-                            onClassSelected={onClassSelected} />
+                            onClassSelected={onClassSelected} lang={this.props.lang}/>
                     </div>
                 ))}
             </ul>
