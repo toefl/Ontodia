@@ -14,7 +14,7 @@ export interface NodeTreeProps {
     onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
 }
 
-interface ClassTreeState {
+export interface ClassTreeState {
     expanded?: Boolean | undefined;
     bgColor?: string | undefined;
 }

@@ -12,7 +12,7 @@ export interface ClassTreeProps {
     onClassSelected: (classId: string) => void;
 }
 
-interface ClassTreeState {
+export interface ClassTreeState {
     roots?: ReadonlyArray<FatClassModel> | undefined;
     resultIds?: Array<string> | undefined;
     lang?: Readonly<string> | undefined;
