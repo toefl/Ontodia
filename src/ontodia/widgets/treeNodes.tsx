@@ -18,13 +18,13 @@ const CLASS_NAME = 'ontodia-class-tree';
 
 export class TreeNodes extends React.Component<TreeNodesProps, {}> {
     public static defaultProps: Partial<TreeNodesProps> = {
-        expanded: true,
-        lang: 'en',
+        expanded: true
     };
 
     constructor(props: TreeNodesProps) {
         super(props);
         this.filter = this.filter.bind(this);
+        this.compare = this.compare.bind(this);
     }
 
     filter(root: FatClassModel): Boolean {
@@ -37,8 +37,8 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
     }
 
     compare(node1: FatClassModel, node2: FatClassModel) {
-        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, Boolean(this) ? this.props.lang : 'en');
-        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, Boolean(this) ? this.props.lang : 'en');
+        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.props.lang);
+        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.props.lang);
         if (classLabel1 < classLabel2) {
             return -1;
         } else {
@@ -55,7 +55,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
         }
         return roots;
     }
-    
+
     render() {
         let { expanded, resultIds, searchString, lang, onClassSelected } = this.props;
         const roots = this.getRenderRoots();

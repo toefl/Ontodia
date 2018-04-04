@@ -40,7 +40,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
             this.setState({ expanded: false });
         }
         if (resultIds && resultIds.length !== 0) {
-            this.setState({ expanded: Boolean(resultIds.find(id => id === this.props.node.id)) });
+            this.setState({ expanded: true });
         }
         if (this.state.bgColor === 'rgb(190,235,255)') {
             this.setState({ bgColor: undefined });
@@ -75,23 +75,27 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
     }
 
-    render(): React.ReactElement<any> {
-        const { node, resultIds, searchString, lang, onClassSelected } = this.props;
-        const bgColor = this.state.bgColor;
-        let bold = false;
-        let classLabel = formatLocalizedLabel(node.id, node.label, lang);
-        if (Boolean(resultIds) && resultIds.length !== 0) {
-            if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-                bold = true;
+    boldNode(classLabel: string): Boolean {
+        if (Boolean(this.props.resultIds) && this.props.resultIds.length !== 0) {
+            if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
+                return true;
             }
             try { // FatClassModel from dbpedia does not contain information about count
-                if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-                    bold = true;
+                if (this.props.node.count.toString().indexOf(this.props.searchString.toUpperCase()) !== -1) {
+                    return true;
                 }
             } catch (err) {
                 // console.error("class.count === undefined. The search for count will be ignored.")
             }
         }
+        return false;
+    }
+    render(): React.ReactElement<any> {
+        const { node, resultIds, searchString, lang, onClassSelected } = this.props;
+        const bgColor = this.state.bgColor;
+        let classLabel = formatLocalizedLabel(node.id, node.label, lang);
+        let bold = this.boldNode(classLabel);
+
         return (
             <div className='container' role='treeitem' >
                 <div className={this.getIcon()} onClick={this.toggle} />
