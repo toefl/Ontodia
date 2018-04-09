@@ -132,12 +132,30 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             return 1;
         }
     }
+    private findCycle(root: FatClassModel, cycle: Boolean = false, checkedIds: string[] = []): Boolean {
+        if (root.base && checkedIds.indexOf(root.base.id) !== -1) {
+            cycle = true;
+            console.log('Класс ' + root.id.split('#')[1] + ' образует цикличность.');
+        } else {
+            checkedIds.push(root.base && root.base.id);
+        }
+        root.derived.forEach(element => {
+            this.findCycle(element, cycle, checkedIds);
+        });
+        return cycle;
+    }
     private refreshClassTree(): void {
         const { view } = this.props;
-        const roots = view.model.getClasses().filter(model => !model.base);
+        let classes = view.model.getClasses();
+        classes.forEach(elem => {
+            if (this.findCycle(elem)) {
+                //console.log(elem.id.split('#')[1] + ' has cycle.');
+            }
+        });
+        //roots = this.findCycle(roots);
 
-        roots.sort();
-        this.setState({ roots: roots, lang: view.getLanguage() });
+        //roots.sort();
+        //this.setState({ roots: roots, lang: view.getLanguage() });
     }
 }
 export default ClassTree;
