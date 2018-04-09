@@ -8,7 +8,7 @@ import { Node } from './node';
 export interface TreeNodesProps {
     roots: ReadonlyArray<FatClassModel> | undefined;
     expanded?: Boolean;
-    result: Array<FatClassModel> | undefined;
+    searchResult: Array<FatClassModel> | undefined;
     searchString?: string | undefined;
     lang?: Readonly<string> | undefined;
     onClassSelected: (classId: string) => void;
@@ -28,9 +28,9 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
     }
 
     filter(root: FatClassModel): Boolean {
-        const { result } = this.props;
-        if (result) {
-            return Boolean(result.find(resultRoot => resultRoot === root));
+        const { searchResult } = this.props;
+        if (searchResult) {
+            return Boolean(searchResult.find(resultRoot => resultRoot === root));
         } else {
             return true;
         }
@@ -48,7 +48,8 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
 
     getRenderRoots() {
         let roots;
-        if (this.props.result && this.props.result.length === 0) { // a search was performed. The result is empty.
+        // a search was performed. The searchResult is empty
+        if (this.props.searchResult && this.props.searchResult.length === 0) {
             roots = this.props.roots;
         } else { // need a filter for the displayed roots
             roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
@@ -57,14 +58,14 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
     }
 
     render() {
-        let { expanded, result, searchString, lang, onClassSelected } = this.props;
+        let { expanded, searchResult, searchString, lang, onClassSelected } = this.props;
         const roots = this.getRenderRoots();
 
         return (
             <ul className={`${CLASS_NAME}__elements`} style={{ display: expanded ? 'block' : 'none' }}>
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
-                        <Node node={element} result={result} searchString={searchString}
+                        <Node node={element} searchResult={searchResult} searchString={searchString}
                             onClassSelected={onClassSelected} lang={this.props.lang} />
                     </div>
                 ))}

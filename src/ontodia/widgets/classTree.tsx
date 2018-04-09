@@ -60,7 +60,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                 <div className={`${CLASS_NAME}__rest`}>
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
-                            result={this.state.resultIds} lang={this.props.view.getLanguage()}
+                            searchResult={this.state.resultIds} lang={this.props.view.getLanguage()}
                             onClassSelected={this.props.onClassSelected} />
                     </div>
                 </div>
@@ -80,32 +80,32 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         if (searchString === this.state.searchString) {
             return;
         }
-        let result: Array<FatClassModel> = [];
+        let searchResult: Array<FatClassModel> = [];
         this.state.roots.forEach(node => {
-            this.deepSearch(searchString, node, result);
+            this.deepSearch(searchString, node, searchResult);
         });
-        this.setState({ resultIds: this.printNodes(result), searchString: searchString });
+        this.setState({ resultIds: this.printNodes(searchResult), searchString: searchString });
     }
-    private deepSearch = (searchString: string, node: FatClassModel, result: Array<FatClassModel>): void => {
+    private deepSearch = (searchString: string, node: FatClassModel, searchResult: Array<FatClassModel>): void => {
         let classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
         if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-            result.push(node);
+            searchResult.push(node);
         }
         try { // FatClassModel from dbpedia does not contain information about count
             if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-                result.push(node);
+                searchResult.push(node);
             }
         } catch (e) {
             // console.error("class.count === undefined. The search for count will be ignored.")
         }
         for (let i = 0; i < node.derived.length; i++) {
-            this.deepSearch(searchString, node.derived[i], result);
+            this.deepSearch(searchString, node.derived[i], searchResult);
         }
     }
-    private printNodes(result: FatClassModel[]): Array<FatClassModel> {
-        let printNodes: Array<FatClassModel> = result;
-        for (let i = 0; i < result.length; i++) {
-            let tmp = result[i];
+    private printNodes(searchResult: FatClassModel[]): Array<FatClassModel> {
+        let printNodes: Array<FatClassModel> = searchResult;
+        for (let i = 0; i < searchResult.length; i++) {
+            let tmp = searchResult[i];
             while (tmp.base !== undefined) {
                 printNodes.push(tmp.base);
                 tmp = tmp.base;
