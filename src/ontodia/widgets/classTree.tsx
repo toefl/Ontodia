@@ -14,7 +14,7 @@ export interface ClassTreeProps {
 
 export interface ClassTreeState {
     roots?: ReadonlyArray<FatClassModel> | undefined;
-    resultIds?: Array<string> | undefined;
+    resultIds?: Array<FatClassModel> | undefined;
     lang?: Readonly<string> | undefined;
     searchString?: string | undefined;
 }
@@ -60,7 +60,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                 <div className={`${CLASS_NAME}__rest`}>
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
-                            resultIds={this.state.resultIds} lang={this.props.view.getLanguage()}
+                            searchResult={this.state.resultIds} lang={this.props.view.getLanguage()}
                             onClassSelected={this.props.onClassSelected} />
                     </div>
                 </div>
@@ -77,65 +77,93 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             }
             return;
         }
-        if ( searchString === this.state.searchString ) {
+        if (searchString === this.state.searchString) {
             return;
         }
-        let result: Array<FatClassModel> = [];
+        let searchResult: Array<FatClassModel> = [];
         this.state.roots.forEach(node => {
-            this.deepSearch(searchString, node, result);
+            this.deepSearch(searchString, node, searchResult);
         });
-        this.setState({ resultIds: this.printNodesIds(result), searchString: searchString });
+        this.setState({ resultIds: this.printNodes(searchResult), searchString: searchString });
     }
-    private deepSearch = (searchString: string, node: FatClassModel, result: Array<FatClassModel>): void => {
+    private deepSearch = (searchString: string, node: FatClassModel, searchResult: Array<FatClassModel>): void => {
         let classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
         if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-            result.push(node);
+            searchResult.push(node);
         }
         try { // FatClassModel from dbpedia does not contain information about count
             if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-                result.push(node);
+                searchResult.push(node);
             }
         } catch (e) {
             // console.error("class.count === undefined. The search for count will be ignored.")
         }
         for (let i = 0; i < node.derived.length; i++) {
-            this.deepSearch(searchString, node.derived[i], result);
+            this.deepSearch(searchString, node.derived[i], searchResult);
         }
     }
-    private printNodesIds(result: FatClassModel[]): Array<string> {
-        let printNodesIds: Array<string> = result.map(node => node.id);
-        for (let i = 0; i < result.length; i++) {
-            let tmp = result[i];
+    private printNodes(searchResult: FatClassModel[]): Array<FatClassModel> {
+        let printNodes: Array<FatClassModel> = searchResult;
+        for (let i = 0; i < searchResult.length; i++) {
+            let tmp = searchResult[i];
             while (tmp.base !== undefined) {
-                printNodesIds.push(tmp.base.id);
+                printNodes.push(tmp.base);
                 tmp = tmp.base;
             }
         }
-        printNodesIds = this.getUnique(printNodesIds);
-        return printNodesIds;
+        printNodes = this.getUnique(printNodes);
+        return printNodes;
     }
-    private getUnique(nodesId: Array<string>) {
+    private getUnique(nodes: Array<FatClassModel>) {
         let unique = [];
-        for (let i = 0; i < nodesId.length; i++) {
-            if (unique.indexOf(nodesId[i]) === -1) {
-                unique.push(nodesId[i]);
+        for (let i = 0; i < nodes.length; i++) {
+            if (unique.indexOf(nodes[i]) === -1) {
+                unique.push(nodes[i]);
             }
         }
         return unique;
     };
+    sort(node1: FatClassModel, node2: FatClassModel) {
+        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.state.lang);
+        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.state.lang);
+        if (classLabel1 < classLabel2) {
+            return -1;
+        } else {
+            return 1;
+        }
+    }
+    findBaseClasses(root: FatClassModel, baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>) {
+        while (root.base !== undefined) {
+            if (notBaseClasses.indexOf(root) === -1) {
+                notBaseClasses.push(root);
+            }
+            root = root.base;
+        }
+        if (baseClasses.indexOf(root) === -1) {
+            baseClasses.push(root);
+        }
+    }
+    deleteFakeBaseClasses(baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>): void {
+        for (let i = 0; i < baseClasses.length; i++) {
+            for (let j = 0; j < notBaseClasses.length; j++) {
+                if ((baseClasses[i].id === notBaseClasses[j].id) && baseClasses[i].derived.length === 0) {
+                    baseClasses.splice(i, 1);
+                    i = i - 1;
+                }
+            }
+        }
+    }
     private refreshClassTree(): void {
         const { view } = this.props;
-        const roots = view.model.getClasses().filter(model => !model.base);
-        roots.sort((node1, node2) => {
-            let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.state.lang);
-            let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.state.lang);
-            if (classLabel1 < classLabel2) {
-                return -1;
-            } else {
-                return 1;
-            }
+        let classes = view.model.getClasses();
+        let baseClasses: Array<FatClassModel> = [];
+        let notBaseClasses: Array<FatClassModel> = [];
+        classes.forEach(elem => {
+            this.findBaseClasses(elem, baseClasses, notBaseClasses);
         });
-        this.setState({ roots: roots, lang: view.getLanguage() });
+        this.deleteFakeBaseClasses(baseClasses, notBaseClasses);
+        baseClasses.sort();
+        this.setState({ roots: baseClasses, lang: view.getLanguage() });
     }
 }
 export default ClassTree;

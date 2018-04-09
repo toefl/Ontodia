@@ -8,7 +8,7 @@ import { TreeNodes } from './treeNodes';
 export interface NodeTreeProps {
     node: FatClassModel;
     lang?: Readonly<string> | undefined;
-    resultIds?: Array<string> | undefined;
+    searchResult?: Array<FatClassModel> | undefined;
     searchString?: string | undefined;
     onClassSelected: (classId: string) => void;
     onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
@@ -24,7 +24,7 @@ const CLASS_NAME = 'ontodia-class-tree';
 export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     constructor(props: NodeTreeProps) {
         super(props);
-        let resultEmpty = !(this.props.resultIds && this.props.resultIds.length !== 0);
+        let resultEmpty = !(this.props.searchResult && this.props.searchResult.length !== 0);
         if (resultEmpty) {
             this.state = { expanded: false };
         } else {
@@ -35,12 +35,12 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     }
 
     componentWillReceiveProps(nextProps: NodeTreeProps) {
-        const { resultIds } = nextProps;
-        if (resultIds !== this.props.resultIds) {
+        const { searchResult } = nextProps;
+        if (searchResult !== this.props.searchResult) {
             this.setState({ expanded: false });
         }
-        if (resultIds && resultIds.length !== 0) {
-            this.setState({ expanded: Boolean(resultIds.find(id => id === this.props.node.id)) });
+        if (searchResult && searchResult.length !== 0) {
+            this.setState({ expanded: true });
         }
         if (this.state.bgColor === 'rgb(190,235,255)') {
             this.setState({ bgColor: undefined });
@@ -75,25 +75,29 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
     }
 
-    render(): React.ReactElement<any> {
-        const { node, resultIds, searchString, lang, onClassSelected } = this.props;
-        const bgColor = this.state.bgColor;
-        let bold = false;
-        let classLabel = formatLocalizedLabel(node.id, node.label, lang);
-        if (Boolean(resultIds) && resultIds.length !== 0) {
-            if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-                bold = true;
+    boldNode(classLabel: string): Boolean {
+        if (Boolean(this.props.searchResult) && this.props.searchResult.length !== 0) {
+            if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
+                return true;
             }
             try { // FatClassModel from dbpedia does not contain information about count
-                if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-                    bold = true;
+                if (this.props.node.count.toString().indexOf(this.props.searchString.toUpperCase()) !== -1) {
+                    return true;
                 }
             } catch (err) {
                 // console.error("class.count === undefined. The search for count will be ignored.")
             }
         }
+        return false;
+    }
+    render(): React.ReactElement<any> {
+        const { node, searchResult, searchString, lang, onClassSelected } = this.props;
+        const bgColor = this.state.bgColor;
+        let classLabel = formatLocalizedLabel(node.id, node.label, lang);
+        let bold = this.boldNode(classLabel);
+
         return (
-            <div className='container' role='treeitem' >
+            <div className='container' role='treeitem'>
                 <div className={this.getIcon()} onClick={this.toggle} />
                 <li className={this.hasChildren()} onClick={this.showInstances}
                     style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
@@ -110,7 +114,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                     {classLabel + (node.count !== undefined ? (' (' + node.count + ')') : '')}
                 </li>
                 {node.derived && node.derived.length !== 0 ? (
-                    <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
+                    <TreeNodes roots={node.derived} expanded={this.state.expanded} searchResult={searchResult}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
                 ) : (null)}
             </div>

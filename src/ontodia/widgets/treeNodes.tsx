@@ -8,7 +8,7 @@ import { Node } from './node';
 export interface TreeNodesProps {
     roots: ReadonlyArray<FatClassModel> | undefined;
     expanded?: Boolean;
-    resultIds: Array<string> | undefined;
+    searchResult: Array<FatClassModel> | undefined;
     searchString?: string | undefined;
     lang?: Readonly<string> | undefined;
     onClassSelected: (classId: string) => void;
@@ -18,27 +18,27 @@ const CLASS_NAME = 'ontodia-class-tree';
 
 export class TreeNodes extends React.Component<TreeNodesProps, {}> {
     public static defaultProps: Partial<TreeNodesProps> = {
-        expanded: true,
-        lang: 'en',
+        expanded: true
     };
 
     constructor(props: TreeNodesProps) {
         super(props);
         this.filter = this.filter.bind(this);
+        this.compare = this.compare.bind(this);
     }
 
     filter(root: FatClassModel): Boolean {
-        const { resultIds } = this.props;
-        if (resultIds) {
-            return Boolean(resultIds.find(id => root.id === id));
+        const { searchResult } = this.props;
+        if (searchResult) {
+            return Boolean(searchResult.find(resultRoot => resultRoot === root));
         } else {
             return true;
         }
     }
 
     compare(node1: FatClassModel, node2: FatClassModel) {
-        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, Boolean(this) ? this.props.lang : 'en');
-        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, Boolean(this) ? this.props.lang : 'en');
+        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.props.lang);
+        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.props.lang);
         if (classLabel1 < classLabel2) {
             return -1;
         } else {
@@ -48,24 +48,25 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
 
     getRenderRoots() {
         let roots;
-        if (this.props.resultIds && this.props.resultIds.length === 0) { // a search was performed. The result is empty.
+        // a search was performed. The searchResult is empty
+        if (this.props.searchResult && this.props.searchResult.length === 0) {
             roots = this.props.roots;
         } else { // need a filter for the displayed roots
             roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
         }
         return roots;
     }
-    
+
     render() {
-        let { expanded, resultIds, searchString, lang, onClassSelected } = this.props;
+        let { expanded, searchResult, searchString, lang, onClassSelected } = this.props;
         const roots = this.getRenderRoots();
 
         return (
             <ul className={`${CLASS_NAME}__elements`} style={{ display: expanded ? 'block' : 'none' }}>
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
-                        <Node node={element} resultIds={resultIds} searchString={searchString}
-                            onClassSelected={onClassSelected} lang={this.props.lang}/>
+                        <Node node={element} searchResult={searchResult} searchString={searchString}
+                            onClassSelected={onClassSelected} lang={this.props.lang} />
                     </div>
                 ))}
             </ul>
