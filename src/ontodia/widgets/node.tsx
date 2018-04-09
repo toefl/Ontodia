@@ -8,7 +8,7 @@ import { TreeNodes } from './treeNodes';
 export interface NodeTreeProps {
     node: FatClassModel;
     lang?: Readonly<string> | undefined;
-    resultIds?: Array<string> | undefined;
+    result?: Array<FatClassModel> | undefined;
     searchString?: string | undefined;
     onClassSelected: (classId: string) => void;
     onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
@@ -24,7 +24,7 @@ const CLASS_NAME = 'ontodia-class-tree';
 export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     constructor(props: NodeTreeProps) {
         super(props);
-        let resultEmpty = !(this.props.resultIds && this.props.resultIds.length !== 0);
+        let resultEmpty = !(this.props.result && this.props.result.length !== 0);
         if (resultEmpty) {
             this.state = { expanded: false };
         } else {
@@ -35,11 +35,11 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     }
 
     componentWillReceiveProps(nextProps: NodeTreeProps) {
-        const { resultIds } = nextProps;
-        if (resultIds !== this.props.resultIds) {
+        const { result } = nextProps;
+        if (result !== this.props.result) {
             this.setState({ expanded: false });
         }
-        if (resultIds && resultIds.length !== 0) {
+        if (result && result.length !== 0) {
             this.setState({ expanded: true });
         }
         if (this.state.bgColor === 'rgb(190,235,255)') {
@@ -76,7 +76,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
     }
 
     boldNode(classLabel: string): Boolean {
-        if (Boolean(this.props.resultIds) && this.props.resultIds.length !== 0) {
+        if (Boolean(this.props.result) && this.props.result.length !== 0) {
             if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                 return true;
             }
@@ -91,7 +91,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         return false;
     }
     render(): React.ReactElement<any> {
-        const { node, resultIds, searchString, lang, onClassSelected } = this.props;
+        const { node, result, searchString, lang, onClassSelected } = this.props;
         const bgColor = this.state.bgColor;
         let classLabel = formatLocalizedLabel(node.id, node.label, lang);
         let bold = this.boldNode(classLabel);
@@ -114,7 +114,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                     {classLabel + (node.count !== undefined ? (' (' + node.count + ')') : '')}
                 </li>
                 {node.derived && node.derived.length !== 0 ? (
-                    <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
+                    <TreeNodes roots={node.derived} expanded={this.state.expanded} result={result}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
                 ) : (null)}
             </div>

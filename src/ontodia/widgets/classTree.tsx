@@ -14,7 +14,7 @@ export interface ClassTreeProps {
 
 export interface ClassTreeState {
     roots?: ReadonlyArray<FatClassModel> | undefined;
-    resultIds?: Array<string> | undefined;
+    resultIds?: Array<FatClassModel> | undefined;
     lang?: Readonly<string> | undefined;
     searchString?: string | undefined;
 }
@@ -60,7 +60,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                 <div className={`${CLASS_NAME}__rest`}>
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
-                            resultIds={this.state.resultIds} lang={this.props.view.getLanguage()}
+                            result={this.state.resultIds} lang={this.props.view.getLanguage()}
                             onClassSelected={this.props.onClassSelected} />
                     </div>
                 </div>
@@ -84,7 +84,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         this.state.roots.forEach(node => {
             this.deepSearch(searchString, node, result);
         });
-        this.setState({ resultIds: this.printNodesIds(result), searchString: searchString });
+        this.setState({ resultIds: this.printNodes(result), searchString: searchString });
     }
     private deepSearch = (searchString: string, node: FatClassModel, result: Array<FatClassModel>): void => {
         let classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
@@ -102,23 +102,23 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             this.deepSearch(searchString, node.derived[i], result);
         }
     }
-    private printNodesIds(result: FatClassModel[]): Array<string> {
-        let printNodesIds: Array<string> = result.map(node => node.id);
+    private printNodes(result: FatClassModel[]): Array<FatClassModel> {
+        let printNodes: Array<FatClassModel> = result;
         for (let i = 0; i < result.length; i++) {
             let tmp = result[i];
             while (tmp.base !== undefined) {
-                printNodesIds.push(tmp.base.id);
+                printNodes.push(tmp.base);
                 tmp = tmp.base;
             }
         }
-        printNodesIds = this.getUnique(printNodesIds);
-        return printNodesIds;
+        printNodes = this.getUnique(printNodes);
+        return printNodes;
     }
-    private getUnique(nodesId: Array<string>) {
+    private getUnique(nodes: Array<FatClassModel>) {
         let unique = [];
-        for (let i = 0; i < nodesId.length; i++) {
-            if (unique.indexOf(nodesId[i]) === -1) {
-                unique.push(nodesId[i]);
+        for (let i = 0; i < nodes.length; i++) {
+            if (unique.indexOf(nodes[i]) === -1) {
+                unique.push(nodes[i]);
             }
         }
         return unique;
