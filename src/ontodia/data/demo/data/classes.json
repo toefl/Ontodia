@@ -646,66 +646,66 @@
     "children": []
   },
   {
-    "id": "http://www.w3.org/2002/07/owl#Class",
+    "id": "http://www.w3.org/2002/07/owl#Нагревание",
     "label": {
       "values": [
         {
-          "text": "Class",
+          "text": "Нагревание жидкости.",
           "lang": ""
         }
       ]
     },
     "count": 44,
     "children": [{
-      "id": "http://www.w3.org/2002/07/owl#Ontology",
+      "id": "http://www.w3.org/2002/07/owl#Испарение",
       "label": {
         "values": [
           {
-            "text": "Ontology",
+            "text": "Испарение жидкости",
             "lang": ""
           }
         ]
       },
       "count": 1,
         "children": [{
-        "id": "http://www.w3.org/2002/07/owl#Class",
+        "id": "http://www.w3.org/2002/07/owl#Охлаждение",
         "label": {
           "values": [
             {
-              "text": "Class",
+              "text": "Охлаждение жидкости",
               "lang": ""
             }
           ]
         },
         "count": 44,
         "children": [{
-          "id": "http://www.w3.org/2002/07/owl#ObjectProperty",
+          "id": "http://www.w3.org/2002/07/owl#Конденсация",
           "label": {
             "values": [
               {
-                "text": "ObjectProperty",
+                "text": "Конденсация жидкости",
                 "lang": ""
               }
             ]
           },
           "count": 3,
           "children": [{
-            "id": "http://www.w3.org/2002/07/owl#Class",
+            "id": "http://www.w3.org/2002/07/owl#Нагревание",
             "label": {
               "values": [
                 {
-                  "text": "Class",
+                  "text": "Нагревание жидкости",
                   "lang": ""
                 }
               ]
             },
             "count": 44,
             "children": [{
-              "id": "http://www.w3.org/2002/07/owl#Class",
+              "id": "http://www.w3.org/2002/07/owl#Испарение",
               "label": {
                 "values": [
                   {
-                    "text": "Class",
+                    "text": "Испарение жидкости",
                     "lang": ""
                   }
                 ]

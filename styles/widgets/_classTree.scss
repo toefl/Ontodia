@@ -44,6 +44,7 @@
     }
     &::before {
       content: url("../images/tree-leaf-folder.png");
+      //content: url("../images/open-folder.png");
       max-width: 19px;
       max-height: 19px;
       margin: 2px;
@@ -65,6 +66,7 @@
     }
     &::before {
       content: url("../images/tree-leaf.png");
+      //content: url("../images/closed-folder.png");
       max-width: 19px;
       max-height: 19px;
       margin: 2px;
