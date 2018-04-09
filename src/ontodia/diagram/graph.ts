@@ -205,9 +205,9 @@ export class Graph {
     }
 
     addClass(classModel: FatClassModel): void {
-        if (this.getClass(classModel.id)) {
+        /* if (this.getClass(classModel.id)) {
             throw new Error(`Class '${classModel.id}' already exists.`);
-        }
+        } */
         classModel.events.onAny(this.onClassEvent);
         this.classesById[classModel.id] = classModel;
     }

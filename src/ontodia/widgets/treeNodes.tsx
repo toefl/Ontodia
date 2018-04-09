@@ -29,8 +29,9 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
 
     filter(root: FatClassModel): Boolean {
         const { resultIds } = this.props;
+        //const map: { [ id: string]: string } = {};
         if (resultIds) {
-            return Boolean(resultIds.find(id => root.id === id));
+            return /* Boolean( map[root.id]); */  Boolean(resultIds.find(id => root.id === id));
         } else {
             return true;
         }

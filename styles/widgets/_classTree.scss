@@ -73,13 +73,13 @@
   
   .collapse-node-icon {
     position: relative;
-    top: 12px;
-    right: 1px;
-    max-width: 9px;
-    max-height: 9px;
+    top: 10px;
+    right: 8px;
+    max-width: 12px;
+    max-height: 12px;
     float: left;
     margin-left: -6px;
-    content: url("../images/expand-properties.png");
+    content: url("../images/expand-node.png");
     &:hover {
       background: #dcebff91;
       cursor: pointer;
@@ -87,13 +87,13 @@
   }
   .expand-node-icon {
     position: relative;
-    top: 12px;
-    right: 1px;
-    max-width: 9px;
-    max-height: 9px;
+    top: 10px;
+    right: 8px;
+    max-width: 12px;
+    max-height: 12px;
     float: left;
     margin-left: -6px;
-    content: url("../images/collapse-properties.png");
+    content: url("../images/collapse-node.png");
     &:hover {
       background: #dcebff91;
       cursor: pointer;

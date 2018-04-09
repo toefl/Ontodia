@@ -97,7 +97,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         let bold = this.boldNode(classLabel);
 
         return (
-            <div className='container' role='treeitem' >
+            <div className='container' role='treeitem'>
                 <div className={this.getIcon()} onClick={this.toggle} />
                 <li className={this.hasChildren()} onClick={this.showInstances}
                     style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}

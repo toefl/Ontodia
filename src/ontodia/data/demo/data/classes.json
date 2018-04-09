@@ -640,8 +640,20 @@
       ]
     },
     "count": 44,
-    "children": []
-  },
+    "children": [
+      {
+        "id": "http://ailab.ifmo.ru/dialog/tv/schema#Operation",
+        "label": {
+          "values": [
+            {
+              "text": "Operation",
+              "lang": ""
+            }
+          ]
+        },
+        "count": 0,
+        "children": []
+  }] },
   {
     "id": "http://www.w3.org/2002/07/owl#Ontology",
     "label": {

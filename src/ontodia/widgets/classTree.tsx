@@ -77,7 +77,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             }
             return;
         }
-        if ( searchString === this.state.searchString ) {
+        if (searchString === this.state.searchString) {
             return;
         }
         let result: Array<FatClassModel> = [];
@@ -123,18 +123,20 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         }
         return unique;
     };
+    sort(node1: FatClassModel, node2: FatClassModel) {
+        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.state.lang);
+        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.state.lang);
+        if (classLabel1 < classLabel2) {
+            return -1;
+        } else {
+            return 1;
+        }
+    }
     private refreshClassTree(): void {
         const { view } = this.props;
         const roots = view.model.getClasses().filter(model => !model.base);
-        roots.sort((node1, node2) => {
-            let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.state.lang);
-            let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.state.lang);
-            if (classLabel1 < classLabel2) {
-                return -1;
-            } else {
-                return 1;
-            }
-        });
+
+        roots.sort();
         this.setState({ roots: roots, lang: view.getLanguage() });
     }
 }
