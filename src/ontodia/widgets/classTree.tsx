@@ -132,30 +132,38 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             return 1;
         }
     }
-    private findCycle(root: FatClassModel, cycle: Boolean = false, checkedIds: string[] = []): Boolean {
-        if (root.base && checkedIds.indexOf(root.base.id) !== -1) {
-            cycle = true;
-            console.log('Класс ' + root.id.split('#')[1] + ' образует цикличность.');
-        } else {
-            checkedIds.push(root.base && root.base.id);
+    findBaseClasses(root: FatClassModel, baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>) {
+        while (root.base !== undefined) {
+            if (notBaseClasses.indexOf(root) === -1) {
+                notBaseClasses.push(root);
+            }
+            root = root.base;
         }
-        root.derived.forEach(element => {
-            this.findCycle(element, cycle, checkedIds);
-        });
-        return cycle;
+        if (baseClasses.indexOf(root) === -1) {
+            baseClasses.push(root);
+        }
+    }
+    deleteFakeBaseClasses(baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>): void {
+        for (let i = 0; i < baseClasses.length; i++) {
+            for (let j = 0; j < notBaseClasses.length; j++) {
+                if ((baseClasses[i].id === notBaseClasses[j].id) && baseClasses[i].derived.length === 0) {
+                    baseClasses.splice(i, 1);
+                    i = i - 1;
+                }
+            }
+        }
     }
     private refreshClassTree(): void {
         const { view } = this.props;
         let classes = view.model.getClasses();
+        let baseClasses: Array<FatClassModel> = [];
+        let notBaseClasses: Array<FatClassModel> = [];
         classes.forEach(elem => {
-            if (this.findCycle(elem)) {
-                //console.log(elem.id.split('#')[1] + ' has cycle.');
-            }
+            this.findBaseClasses(elem, baseClasses, notBaseClasses);
         });
-        //roots = this.findCycle(roots);
-
-        //roots.sort();
-        //this.setState({ roots: roots, lang: view.getLanguage() });
+        this.deleteFakeBaseClasses(baseClasses, notBaseClasses);
+        baseClasses.sort();
+        this.setState({ roots: baseClasses, lang: view.getLanguage() });
     }
 }
 export default ClassTree;

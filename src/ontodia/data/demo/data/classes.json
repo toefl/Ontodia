@@ -51,7 +51,23 @@
               ]
             },
             "count": 0,
-            "children": []
+            "children": [{
+                "id": "http://www.w3.org/2002/07/owl#Thing",
+                "label": {
+                  "values": [
+                    {
+                      "text": "Thing",
+                      "lang": "en"
+                    },
+                    {
+                      "text": "Вещь",
+                      "lang": "ru"
+                    }
+                  ]
+                },
+                "count": 8,
+                "children": []
+            }]
           },
           {
             "id": "http://ailab.ifmo.ru/dialog/tv/schema#Speed",
@@ -641,6 +657,68 @@
     },
     "count": 44,
     "children": [{
+      "id": "http://www.w3.org/2002/07/owl#Ontology",
+      "label": {
+        "values": [
+          {
+            "text": "Ontology",
+            "lang": ""
+          }
+        ]
+      },
+      "count": 1,
+        "children": [{
+        "id": "http://www.w3.org/2002/07/owl#Class",
+        "label": {
+          "values": [
+            {
+              "text": "Class",
+              "lang": ""
+            }
+          ]
+        },
+        "count": 44,
+        "children": [{
+          "id": "http://www.w3.org/2002/07/owl#ObjectProperty",
+          "label": {
+            "values": [
+              {
+                "text": "ObjectProperty",
+                "lang": ""
+              }
+            ]
+          },
+          "count": 3,
+          "children": [{
+            "id": "http://www.w3.org/2002/07/owl#Class",
+            "label": {
+              "values": [
+                {
+                  "text": "Class",
+                  "lang": ""
+                }
+              ]
+            },
+            "count": 44,
+            "children": [{
+              "id": "http://www.w3.org/2002/07/owl#Class",
+              "label": {
+                "values": [
+                  {
+                    "text": "Class",
+                    "lang": ""
+                  }
+                ]
+              },
+              "count": 44,
+              "children": []
+            }]
+          }]
+        }]
+      }]
+    }]
+  },
+  {
     "id": "http://www.w3.org/2002/07/owl#Ontology",
     "label": {
       "values": [
@@ -652,19 +730,19 @@
     },
     "count": 1,
     "children": [{
-    "id": "http://www.w3.org/2002/07/owl#Class",
-    "label": {
-      "values": [
-        {
-          "text": "Class",
-          "lang": ""
-        }
-      ]
-    },
-    "count": 1,
-    "children": []
-  }]
-  }]},
+      "id": "http://www.w3.org/2002/07/owl#Something2",
+      "label": {
+        "values": [
+          {
+            "text": "Something2",
+            "lang": ""
+          }
+        ]
+      },
+      "count": 3,
+      "children": []
+    }]
+  },
   {
     "id": "http://www.w3.org/2002/07/owl#AnnotationProperty",
     "label": {
@@ -689,7 +767,21 @@
       ]
     },
     "count": 3,
-    "children": []
+    "children": [
+      {
+        "id": "http://www.w3.org/2002/07/owl#Something",
+        "label": {
+          "values": [
+            {
+              "text": "Something",
+              "lang": ""
+            }
+          ]
+        },
+        "count": 3,
+        "children": []
+      }
+    ]
   },
   {
     "id": "http://www.w3.org/2002/07/owl#DatatypeProperty",
