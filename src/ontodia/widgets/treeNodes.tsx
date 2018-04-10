@@ -29,7 +29,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
 
     filter(root: FatClassModel): Boolean {
         const { searchResult } = this.props;
-        if (searchResult) {
+        if (searchResult && searchResult.length > 0) {
             return Boolean(searchResult.find(resultRoot => resultRoot === root));
         } else {
             return true;
@@ -48,12 +48,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
 
     getRenderRoots() {
         let roots;
-        // a search was performed. The searchResult is empty
-        if (this.props.searchResult && this.props.searchResult.length === 0) {
-            roots = this.props.roots;
-        } else { // need a filter for the displayed roots
-            roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
-        }
+        roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
         return roots;
     }
 

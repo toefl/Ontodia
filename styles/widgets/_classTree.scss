@@ -22,7 +22,6 @@
 
   &__elements {
     margin-left: -20px;
-    list-style-type: none;
   }
 
   .ontodia-icon {
@@ -34,50 +33,55 @@
   }
 
   .parent-tree-icon {
+      content: url("../images/tree-leaf-folder.png");
+      max-width: 19px;
+      max-height: 19px;
+      margin: -5px;
+      position: relative;
+      top: 2px;
+  }
+
+  .parent-tree-class {
     white-space: nowrap;
     width: fit-content;
     padding: 2px 10px 2px 2px;
     border-radius: 10px;
+    position: relative;
+    left: 30px;
+    bottom: 12px;
     &:hover {
       background: #dcebff91;
       cursor: pointer;
     }
-    &::before {
-      content: url("../images/tree-leaf-folder.png");
-      //content: url("../images/open-folder.png");
-      max-width: 19px;
-      max-height: 19px;
-      margin: 2px;
-      position: relative;
-      top: 2px;
-    }
   }
 
   .default-tree-icon {
+      content: url("../images/tree-leaf.png");
+      max-width: 19px;
+      max-height: 19px;
+      margin: -5px;
+      position: relative;
+      top: 2px;
+      left: 11px;
+  }
+
+  .default-tree-class {
     white-space: nowrap;
     width: fit-content;
     padding: 2px 10px 2px 2px;
     border-radius: 10px;
     position: relative;
-    left: 4px;
+    left: 29px;
+    bottom: 13px;
     &:hover {
       background: #dcebff91;
-      cursor: pointer;  
-    }
-    &::before {
-      content: url("../images/tree-leaf.png");
-      //content: url("../images/closed-folder.png");
-      max-width: 19px;
-      max-height: 19px;
-      margin: 2px;
-      position: relative;
-      top: 2px;
+      cursor: pointer;
     }
   }
-  
+
   .collapse-node-icon {
     position: relative;
-    top: 7px;
+    top: 5px;
     right: 8px;
     max-width: 12px;
     max-height: 12px;
@@ -89,9 +93,10 @@
       cursor: pointer;
     }
   }
+
   .expand-node-icon {
     position: relative;
-    top: 7px;
+    top: 5px;
     right: 8px;
     max-width: 12px;
     max-height: 12px;
@@ -102,5 +107,42 @@
       background: #dcebff91;
       cursor: pointer;
     }
+  }
+
+  .custom-parent-tree-icon {
+    content: url("../images/open-folder.png");
+    max-width: 19px;
+    max-height: 19px;
+    margin: -5px;
+    position: relative;
+    top: 2px;
+    left: 2px;
+  }
+
+  .custom-child-tree-icon {
+  content: url("../images/closed-folder.png");
+  max-width: 19px;
+  max-height: 19px;
+  margin: -5px;
+  position: relative;
+  top: 2px;
+  left: 13px;
+  }
+
+  .class-count {
+    display: inline-block;
+    min-width: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    color: rgb(255, 255, 255);
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    background-color: rgb(119, 119, 119);
+    padding: 3px 7px;
+    border-radius: 10px;
+    position: relative;
+    left: 7px;
   }
 }

@@ -17,6 +17,7 @@ export interface NodeTreeProps {
 export interface ClassTreeState {
     expanded?: Boolean | undefined;
     bgColor?: string | undefined;
+    mapClassIcons?: { [typeId: string]: string } | undefined;
 }
 
 const CLASS_NAME = 'ontodia-class-tree';
@@ -29,6 +30,18 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
             this.state = { expanded: false };
         } else {
             this.state = { expanded: true };
+        }
+
+        let iconMap: { [typeId: string]: string } = {};
+        iconMap['http://www.w3.org/2002/07/owl#Ontology'] = 'custom-parent-tree-icon';
+        iconMap['http://www.w3.org/2002/07/owl#Thing'] = 'custom-parent-tree-icon';
+        iconMap['http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'] = 'custom-child-tree-icon';
+        if (Object.keys(iconMap).length !== 0) {
+            if (resultEmpty) {
+                this.state = { mapClassIcons: iconMap, expanded: false };
+            } else {
+                this.state = { mapClassIcons: iconMap, expanded: true };
+            }
         }
         this.toggle = this.toggle.bind(this);
         this.showInstances = this.showInstances.bind(this);
@@ -56,14 +69,14 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         this.props.onClassSelected(this.props.node.id);
     }
 
-    hasChildren(): string {
+    getDefaultNodeIcon(): string {
         if (this.props.node.derived.length !== 0) {
             return 'parent-tree-icon';
         } else {
             return 'default-tree-icon';
         }
     }
-    getIcon(): string {
+    getToggleIcon(): string {
         if (this.props.node.derived.length === 0) {
             return undefined;
         } else {
@@ -98,8 +111,11 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
 
         return (
             <div className='container' role='treeitem'>
-                <div className={this.getIcon()} onClick={this.toggle} />
-                <li className={this.hasChildren()} onClick={this.showInstances}
+                <div className={this.getToggleIcon()} onClick={this.toggle} />
+                <div className={this.state.mapClassIcons && this.state.mapClassIcons[node.id] ?
+                    this.state.mapClassIcons[node.id] : this.getDefaultNodeIcon()} />
+                <div className={this.getDefaultNodeIcon().replace(/icon/g, 'class')}
+                    onClick={this.showInstances}
                     style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
                     draggable={true}
                     onDragStart={e => {
@@ -111,8 +127,9 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                         }
                         return false;
                     }}>
-                    {classLabel + (node.count !== undefined ? (' (' + node.count + ')') : '')}
-                </li>
+                    {classLabel/*  + (node.count !== undefined ? (' (' + node.count + ')') : '') */}
+                    <span className='class-count'>{node.count !== undefined ? (node.count) : ''}</span>
+                </div>
                 {node.derived && node.derived.length !== 0 ? (
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} searchResult={searchResult}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
