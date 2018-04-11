@@ -1,0 +1,67 @@
+@prefix test: <http://test/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix wikibase: <http://wikiba.se/ontology-beta#> .
+@prefix wdata: <https://www.wikidata.org/wiki/Special:EntityData/> .
+@prefix wd: <http://www.wikidata.org/entity/> .
+@prefix wds: <http://www.wikidata.org/entity/statement/> .
+@prefix wdref: <http://www.wikidata.org/reference/> .
+@prefix wdv: <http://www.wikidata.org/value/> .
+@prefix wdt: <http://www.wikidata.org/prop/direct/> .
+@prefix p: <http://www.wikidata.org/prop/> .
+@prefix ps: <http://www.wikidata.org/prop/statement/> .
+@prefix psv: <http://www.wikidata.org/prop/statement/value/> .
+@prefix psn: <http://www.wikidata.org/prop/statement/value-normalized/> .
+@prefix pq: <http://www.wikidata.org/prop/qualifier/> .
+@prefix pqv: <http://www.wikidata.org/prop/qualifier/value/> .
+@prefix pqn: <http://www.wikidata.org/prop/qualifier/value-normalized/> .
+@prefix pr: <http://www.wikidata.org/prop/reference/> .
+@prefix prv: <http://www.wikidata.org/prop/reference/value/> .
+@prefix prn: <http://www.wikidata.org/prop/reference/value-normalized/> .
+@prefix wdno: <http://www.wikidata.org/prop/novalue/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix schema: <http://schema.org/> .
+@prefix cc: <http://creativecommons.org/ns#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+test:class1 a owl:Class .
+test:class1 rdfs:subClassOf test:class10.
+test:class1 rdfs:subClassOf owl:Thing.
+#---------------------------------
+
+test:class2 a owl:Class .
+test:class2 rdfs:subClassOf test:class1.
+
+test:class3 a owl:Class .
+test:class3 rdfs:subClassOf test:class1.
+
+test:class4 a owl:Class .
+test:class4 rdfs:subClassOf test:class1.
+
+#=================================
+
+test:class5 a owl:Class .
+test:class5 rdfs:subClassOf test:class9.
+test:class5 rdfs:subClassOf owl:Thing.
+
+#---------------------------------
+
+test:class6 a owl:Class .
+test:class6 rdfs:subClassOf test:class5.
+
+test:class7 a owl:Class .
+test:class7 rdfs:subClassOf test:class5.
+
+test:class8 a owl:Class .
+test:class8 rdfs:subClassOf test:class5.
+
+#=================================
+
+test:class9 a owl:Class .
+test:class9 rdfs:subClassOf test:class8.
+
+test:class10 a owl:Class .
+test:class10 rdfs:subClassOf test:class8.
