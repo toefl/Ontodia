@@ -210,12 +210,7 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
         } WHERE {
             VALUES (?inst) {\${ids}}
             OPTIONAL {
-                {
-                    ?inst wdt:P31 ?class .
-                } UNION {
-                    ?inst wdt:P31 ?realClass .
-                    ?realClass wdt:P279 | wdt:P279/wdt:P279 ?class .
-                }
+                ?inst wdt:P31 ?class .
             }
             OPTIONAL {?inst rdfs:label ?label}
             OPTIONAL {
@@ -243,19 +238,19 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
         WHERE {
             {
                 {
-                    SELECT ?outObject WHERE {
+                    SELECT DISTINCT ?outObject WHERE {
                         \${elementIri} \${linkId} ?outObject.
                         FILTER(ISIRI(?outObject))
-                        FILTER(EXISTS { ?outObject ?someprop ?someobj. })
+                        ?outObject ?someprop ?someobj.
                     }
                     LIMIT 101
                 }
             } UNION {
                 {
-                    SELECT ?inObject WHERE {
+                    SELECT DISTINCT ?inObject WHERE {
                         ?inObject \${linkId} \${elementIri}.
                         FILTER(ISIRI(?inObject))
-                        FILTER(EXISTS { ?inObject ?someprop ?someobj. })
+                        ?inObject ?someprop ?someobj.
                     }
                     LIMIT 101
                 }
