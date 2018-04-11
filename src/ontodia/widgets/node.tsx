@@ -33,7 +33,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
 
         let iconMap: { [typeId: string]: string } = {};
-        iconMap['http://www.w3.org/2002/07/owl#Ontology'] = 'custom-parent-tree-icon';
+        iconMap['http://ailab.ifmo.ru/dialog/tv/schema#PropertyAsGoods'] = 'custom-parent-tree-icon';
         iconMap['http://www.w3.org/2002/07/owl#Thing'] = 'custom-parent-tree-icon';
         iconMap['http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'] = 'custom-child-tree-icon';
         if (Object.keys(iconMap).length !== 0) {

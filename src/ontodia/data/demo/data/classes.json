@@ -51,23 +51,7 @@
               ]
             },
             "count": 0,
-            "children": [{
-                "id": "http://www.w3.org/2002/07/owl#Thing",
-                "label": {
-                  "values": [
-                    {
-                      "text": "Thing",
-                      "lang": "en"
-                    },
-                    {
-                      "text": "Вещь",
-                      "lang": "ru"
-                    }
-                  ]
-                },
-                "count": 8,
-                "children": []
-            }]
+            "children": []
           },
           {
             "id": "http://ailab.ifmo.ru/dialog/tv/schema#Speed",
@@ -646,77 +630,17 @@
     "children": []
   },
   {
-    "id": "http://www.w3.org/2002/07/owl#Нагревание",
+    "id": "http://www.w3.org/2002/07/owl#Class",
     "label": {
       "values": [
         {
-          "text": "Нагревание жидкости.",
+          "text": "Class",
           "lang": ""
         }
       ]
     },
     "count": 44,
-    "children": [{
-      "id": "http://www.w3.org/2002/07/owl#Испарение",
-      "label": {
-        "values": [
-          {
-            "text": "Испарение жидкости",
-            "lang": ""
-          }
-        ]
-      },
-      "count": 1,
-        "children": [{
-        "id": "http://www.w3.org/2002/07/owl#Охлаждение",
-        "label": {
-          "values": [
-            {
-              "text": "Охлаждение жидкости",
-              "lang": ""
-            }
-          ]
-        },
-        "count": 44,
-        "children": [{
-          "id": "http://www.w3.org/2002/07/owl#Конденсация",
-          "label": {
-            "values": [
-              {
-                "text": "Конденсация жидкости",
-                "lang": ""
-              }
-            ]
-          },
-          "count": 3,
-          "children": [{
-            "id": "http://www.w3.org/2002/07/owl#Нагревание",
-            "label": {
-              "values": [
-                {
-                  "text": "Нагревание жидкости",
-                  "lang": ""
-                }
-              ]
-            },
-            "count": 44,
-            "children": [{
-              "id": "http://www.w3.org/2002/07/owl#Испарение",
-              "label": {
-                "values": [
-                  {
-                    "text": "Испарение жидкости",
-                    "lang": ""
-                  }
-                ]
-              },
-              "count": 44,
-              "children": []
-            }]
-          }]
-        }]
-      }]
-    }]
+    "children": []
   },
   {
     "id": "http://www.w3.org/2002/07/owl#Ontology",
@@ -729,19 +653,7 @@
       ]
     },
     "count": 1,
-    "children": [{
-      "id": "http://www.w3.org/2002/07/owl#Something2",
-      "label": {
-        "values": [
-          {
-            "text": "Something2",
-            "lang": ""
-          }
-        ]
-      },
-      "count": 3,
-      "children": []
-    }]
+    "children": []
   },
   {
     "id": "http://www.w3.org/2002/07/owl#AnnotationProperty",
@@ -767,21 +679,7 @@
       ]
     },
     "count": 3,
-    "children": [
-      {
-        "id": "http://www.w3.org/2002/07/owl#Something",
-        "label": {
-          "values": [
-            {
-              "text": "Something",
-              "lang": ""
-            }
-          ]
-        },
-        "count": 3,
-        "children": []
-      }
-    ]
+    "children": []
   },
   {
     "id": "http://www.w3.org/2002/07/owl#DatatypeProperty",
@@ -795,5 +693,67 @@
     },
     "count": 30,
     "children": []
+  },
+  {
+    "id": "http://www.w3.org/2002/07/owl#Item1",
+    "label": {
+      "values": [
+        {
+          "text": "Item1",
+          "lang": ""
+        }
+      ]
+    },
+    "count": 0,
+    "children": [{
+    "id": "http://www.w3.org/2002/07/owl#Item2",
+    "label": {
+      "values": [
+        {
+          "text": "Item2",
+          "lang": ""
+        }
+      ]
+    },
+    "count": 0,
+    "children": [{
+    "id": "http://www.w3.org/2002/07/owl#Item1",
+    "label": {
+      "values": [
+        {
+          "text": "Item1",
+          "lang": ""
+        }
+      ]
+    },
+    "count": 0,
+    "children": []
+  }]
+  },
+  {
+    "id": "http://www.w3.org/2002/07/owl#Item3",
+    "label": {
+      "values": [
+        {
+          "text": "Item3",
+          "lang": ""
+        }
+      ]
+    },
+    "count": 0,
+    "children": [{
+    "id": "http://www.w3.org/2002/07/owl#Item1",
+    "label": {
+      "values": [
+        {
+          "text": "Item1",
+          "lang": ""
+        }
+      ]
+    },
+    "count": 0,
+    "children": []
+  }]
+  }]
   }
 ]
