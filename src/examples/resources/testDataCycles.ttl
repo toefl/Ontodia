@@ -64,4 +64,4 @@ test:class9 a owl:Class .
 test:class9 rdfs:subClassOf test:class8.
 
 test:class10 a owl:Class .
-test:class10 rdfs:subClassOf test:class8.
+test:class10 rdfs:subClassOf test:class4.
