@@ -173,11 +173,11 @@ export class FatClassModel {
         }
     }
 
-    addDerived(child: FatClassModel) {
+    private addDerived(child: FatClassModel) {
         this._derived.push(child);
     }
 
-    removeDerived(child: FatClassModel) {
+    private removeDerived(child: FatClassModel) {
         const index = this._derived.indexOf(child);
         if (index >= 0) {
             this._derived.splice(index, 1);

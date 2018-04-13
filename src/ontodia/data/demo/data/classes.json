@@ -741,19 +741,7 @@
       ]
     },
     "count": 0,
-    "children": [{
-    "id": "http://www.w3.org/2002/07/owl#Item1",
-    "label": {
-      "values": [
-        {
-          "text": "Item1",
-          "lang": ""
-        }
-      ]
-    },
-    "count": 0,
     "children": []
-  }]
   }]
   }
 ]

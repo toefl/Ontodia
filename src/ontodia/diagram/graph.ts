@@ -64,24 +64,24 @@ export class Graph {
         }
         element.events.onAny(this.onElementEvent);
         this.elements.push(element.id, element);
-        this.source.trigger('changeCells', {source: this});
+        this.source.trigger('changeCells', { source: this });
     }
 
     private onElementEvent: AnyListener<ElementEvents> = (data, key) => {
-        this.source.trigger('elementEvent', {key, data});
+        this.source.trigger('elementEvent', { key, data });
     }
 
     removeElement(elementId: string): void {
         const element = this.elements.get(elementId);
         if (element) {
-            const options = {silent: true};
+            const options = { silent: true };
             // clone links to prevent modifications during iteration
             for (const link of [...element.links]) {
                 this.removeLink(link.id, options);
             }
             this.elements.delete(elementId);
             element.events.offAny(this.onElementEvent);
-            this.source.trigger('changeCells', {source: this});
+            this.source.trigger('changeCells', { source: this });
         }
     }
 
@@ -99,7 +99,7 @@ export class Graph {
     }
 
     private registerLink(link: DiagramLink, linkType: FatLinkType) {
-        const {typeId} = link;
+        const { typeId } = link;
 
         if (link.typeIndex === undefined) {
             link.typeIndex = linkType.index;
@@ -112,21 +112,21 @@ export class Graph {
 
         link.events.onAny(this.onLinkEvent);
         this.links.push(link.id, link);
-        this.source.trigger('changeCells', {source: this});
+        this.source.trigger('changeCells', { source: this });
     }
 
     private onLinkEvent: AnyListener<LinkEvents> = (data, key) => {
-        this.source.trigger('linkEvent', {key, data});
+        this.source.trigger('linkEvent', { key, data });
     }
 
     removeLink(linkId: string, options?: { silent?: boolean }) {
         const link = this.links.delete(linkId);
         if (link) {
-            const {typeId, sourceId, targetId} = link;
+            const { typeId, sourceId, targetId } = link;
             link.events.offAny(this.onLinkEvent);
-            this.removeLinkReferences({linkTypeId: typeId, sourceId, targetId});
+            this.removeLinkReferences({ linkTypeId: typeId, sourceId, targetId });
             if (!(options && options.silent)) {
-                this.source.trigger('changeCells', {source: this});
+                this.source.trigger('changeCells', { source: this });
             }
         }
     }
@@ -162,7 +162,7 @@ export class Graph {
     }
 
     private onLinkTypeEvent: AnyListener<FatLinkTypeEvents> = (data, key) => {
-        this.source.trigger('linkTypeEvent', {key, data});
+        this.source.trigger('linkTypeEvent', { key, data });
     }
 
     getProperty(propertyId: string): RichProperty | undefined {
@@ -189,11 +189,8 @@ export class Graph {
         return classes;
     }
 
-    addClass(classModel: FatClassModel, classesRepeat?: { [typeId: string]: number} ): void {
-        /* if (this.getClass(classModel.id)) {
-            throw new Error(`Class '${classModel.id}' already exists.`);
-        } */
-        if ( Boolean (classesRepeat[classModel.id])) {
+    addClass(classModel: FatClassModel, classesRepeat?: { [typeId: string]: number }): void {
+        if (Boolean(classesRepeat[classModel.id])) {
             classesRepeat[classModel.id]++;
         } else {
             classesRepeat[classModel.id] = 1;
@@ -203,7 +200,7 @@ export class Graph {
     }
 
     private onClassEvent: AnyListener<FatClassModelEvents> = (data, key) => {
-        this.source.trigger('classEvent', {key, data});
+        this.source.trigger('classEvent', { key, data });
     }
 }
 
@@ -217,7 +214,7 @@ function removeLinkFrom(links: DiagramLink[], model: LinkModel) {
 }
 
 function findLinkIndex(haystack: DiagramLink[], needle: LinkModel) {
-    const {sourceId, targetId, linkTypeId} = needle;
+    const { sourceId, targetId, linkTypeId } = needle;
     for (let i = 0; i < haystack.length; i++) {
         const link = haystack[i];
         if (link.sourceId === sourceId &&
