@@ -691,7 +691,7 @@
         }
       ]
     },
-    "count": 30,
+    "count": 3,
     "children": []
   },
   {
@@ -726,8 +726,20 @@
         }
       ]
     },
+    "count": null,
+    "children": [{
+    "id": "http://www.w3.org/2002/07/owl#Item2",
+    "label": {
+      "values": [
+        {
+          "text": "Item2",
+          "lang": ""
+        }
+      ]
+    },
     "count": 0,
     "children": []
+  }]
   }]
   },
   {

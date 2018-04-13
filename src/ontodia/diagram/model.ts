@@ -199,20 +199,19 @@ export class DiagramModel {
     }
 
     private setClassTree(rootClasses: ClassModel[]) {
-        const classesRepeat: { [typeId: string]: number } = {};
-        const addClass = (base: FatClassModel | undefined, classModel: ClassModel, classesRepeat: { [typeId: string]: number }) => {
+        const addClass = (base: FatClassModel | undefined, classModel: ClassModel) => {
             const { id, label, count, children } = classModel;
             const richClass = new FatClassModel({ id, label: label.values, count });
-            if (!Boolean(this.graph.getClass(richClass.id)) || (classesRepeat[classModel.id] !== 2)) {
+            if (!Boolean(this.graph.getClass(richClass.id))) {
                 richClass.setBase(base);
-                this.graph.addClass(richClass, classesRepeat);
+                this.graph.addClass(richClass);
                 for (const child of children) {
-                    addClass(richClass, child, classesRepeat);
+                    addClass(richClass, child);
                 }
             }
         };
         for (const root of rootClasses) {
-            addClass(undefined, root, classesRepeat);
+            addClass(undefined, root);
         }
 
         this.classTree = this.graph.getClasses();

@@ -189,15 +189,7 @@ export class Graph {
         return classes;
     }
 
-    addClass(classModel: FatClassModel, classesRepeat?: { [typeId: string]: number} ): void {
-        /* if (this.getClass(classModel.id)) {
-            throw new Error(`Class '${classModel.id}' already exists.`);
-        } */
-        if ( Boolean (classesRepeat[classModel.id])) {
-            classesRepeat[classModel.id]++;
-        } else {
-            classesRepeat[classModel.id] = 1;
-        }
+    addClass(classModel: FatClassModel): void {
         classModel.events.onAny(this.onClassEvent);
         this.classesById[classModel.id] = classModel;
     }
