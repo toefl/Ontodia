@@ -1,5 +1,4 @@
 import * as React from 'react';
-import * as _ from 'lodash';
 
 import { FatClassModel } from '../diagram/elements';
 import { formatLocalizedLabel } from '../diagram/model';
@@ -16,7 +15,7 @@ export interface TreeNodesProps {
 
 const CLASS_NAME = 'ontodia-class-tree';
 
-export class TreeNodes extends React.Component<TreeNodesProps, {}> {
+export class TreeNodes extends React.PureComponent<TreeNodesProps, {}> {
     public static defaultProps: Partial<TreeNodesProps> = {
         expanded: true
     };
@@ -46,7 +45,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
         }
     }
 
-    getRenderRoots() {
+    private getRenderRoots() {
         let roots;
         roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
         return roots;
@@ -61,7 +60,7 @@ export class TreeNodes extends React.Component<TreeNodesProps, {}> {
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
                         <Node node={element} searchResult={searchResult} searchString={searchString}
-                            onClassSelected={onClassSelected} lang={this.props.lang} />
+                            onClassSelected={onClassSelected} lang={lang} />
                     </div>
                 ))}
             </ul>

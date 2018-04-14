@@ -23,17 +23,6 @@
   &__elements {
     margin-left: -20px;
   }
-/*   .container:last-child &__elements:last-child {
-    border-left: 1px dashed;
-  } */
-
-  .ontodia-icon {
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    background-size: auto 100%;
-    vertical-align: middle;
-  }
 
   .parent-tree-icon {
       content: url("../images/tree-leaf-folder.png");
@@ -44,7 +33,17 @@
       top: 2px;
   }
 
-  .parent-tree-class {
+  .default-tree-icon {
+    content: url("../images/tree-leaf.png");
+    max-width: 19px;
+    max-height: 19px;
+    margin: -5px;
+    position: relative;
+    top: 2px;
+    left: 11px;
+  }
+
+  .tree-class {
     white-space: nowrap;
     width: fit-content;
     padding: 2px 10px 2px 2px;
@@ -52,30 +51,6 @@
     position: relative;
     left: 30px;
     bottom: 12px;
-    &:hover {
-      background: #dcebff91;
-      cursor: pointer;
-    }
-  }
-
-  .default-tree-icon {
-      content: url("../images/tree-leaf.png");
-      max-width: 19px;
-      max-height: 19px;
-      margin: -5px;
-      position: relative;
-      top: 2px;
-      left: 11px;
-  }
-
-  .default-tree-class {
-    white-space: nowrap;
-    width: fit-content;
-    padding: 2px 10px 2px 2px;
-    border-radius: 10px;
-    position: relative;
-    left: 29px;
-    bottom: 13px;
     &:hover {
       background: #dcebff91;
       cursor: pointer;

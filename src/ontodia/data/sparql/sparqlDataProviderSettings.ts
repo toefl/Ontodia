@@ -163,7 +163,6 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
  PREFIX wdt: <http://www.wikidata.org/prop/direct/>
  PREFIX wd: <http://www.wikidata.org/entity/>
  PREFIX owl:  <http://www.w3.org/2002/07/owl#>
-
 `,
 
     schemaLabelProperty: 'rdfs:label',
@@ -194,12 +193,12 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
                 UNION 
               { ?parent wdt:P279/wdt:P279 wd:Q35120.
                 ?class wdt:P279 ?parent. }
-                
             }
         `,
-        /* UNION
-        { ?parent wdt:P279/wdt:P279/wdt:P279 wd:Q35120.
-          ?class wdt:P279 ?parent. } */
+        /*UNION 
+              { ?parent wdt:P279/wdt:P279/wdt:P279 wd:Q35120.
+                ?class wdt:P279 ?parent. }
+            }*/ 
     // todo: think more, maybe add a limit here?
     linkTypesPattern: `?link wdt:P279* wd:Q18616576.
     BIND(0 as ?instcount)

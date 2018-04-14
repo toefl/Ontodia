@@ -21,12 +21,13 @@ export interface ClassTreeState {
 
 const CLASS_NAME = 'ontodia-class-tree';
 
-export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
+export class ClassTree extends React.PureComponent<ClassTreeProps, ClassTreeState> {
     private readonly listener = new EventObserver();
 
     constructor(props: ClassTreeProps) {
         super(props);
         this.state = ({ roots: undefined });
+        this.search = _.debounce(this.search, 800 /* ms */);
     }
 
     componentDidMount() {
@@ -132,7 +133,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             return 1;
         }
     }
-    findBaseClasses(root: FatClassModel, baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>) {
+    private findBaseClasses(root: FatClassModel, baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>) {
         while (root.base !== undefined) {
             if (notBaseClasses.indexOf(root) === -1) {
                 notBaseClasses.push(root);
@@ -143,7 +144,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
             baseClasses.push(root);
         }
     }
-    deleteFakeBaseClasses(baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>): void {
+    private deleteFakeBaseClasses(baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>): void {
         for (let i = 0; i < baseClasses.length; i++) {
             for (let j = 0; j < notBaseClasses.length; j++) {
                 if ((baseClasses[i].id === notBaseClasses[j].id) && baseClasses[i].derived.length === 0) {
@@ -158,7 +159,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         let classes = view.model.getClasses();
         let baseClasses: Array<FatClassModel> = [];
         let notBaseClasses: Array<FatClassModel> = [];
-        console.log(classes.length);
+        console.log('Classes count: ' + classes.length);
         classes.forEach(elem => {
             this.findBaseClasses(elem, baseClasses, notBaseClasses);
         });

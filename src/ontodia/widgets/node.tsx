@@ -22,7 +22,7 @@ export interface ClassTreeState {
 
 const CLASS_NAME = 'ontodia-class-tree';
 
-export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
+export class Node extends React.PureComponent<NodeTreeProps, ClassTreeState> {
     constructor(props: NodeTreeProps) {
         super(props);
         let resultEmpty = !(this.props.searchResult && this.props.searchResult.length !== 0);
@@ -32,17 +32,18 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
             this.state = { expanded: true };
         }
 
+        /* customization 
         let iconMap: { [typeId: string]: string } = {};
-        /* iconMap['http://ailab.ifmo.ru/dialog/tv/schema#PropertyAsGoods'] = 'custom-parent-tree-icon';
+        iconMap['http://ailab.ifmo.ru/dialog/tv/schema#PropertyAsGoods'] = 'custom-parent-tree-icon';
         iconMap['http://www.w3.org/2002/07/owl#Thing'] = 'custom-parent-tree-icon';
-        iconMap['http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'] = 'custom-child-tree-icon'; */
+        iconMap['http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'] = 'custom-child-tree-icon';
         if (Object.keys(iconMap).length !== 0) {
             if (resultEmpty) {
                 this.state = { mapClassIcons: iconMap, expanded: false };
             } else {
                 this.state = { mapClassIcons: iconMap, expanded: true };
             }
-        }
+        } */
         this.toggle = this.toggle.bind(this);
         this.showInstances = this.showInstances.bind(this);
     }
@@ -60,23 +61,23 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
     }
 
-    toggle() {
+    private toggle() {
         this.setState({ expanded: !this.state.expanded });
     }
 
-    showInstances() {
+    private showInstances() {
         this.setState({ bgColor: 'rgb(190,235,255)' });
         this.props.onClassSelected(this.props.node.id);
     }
 
-    getDefaultNodeIcon(): string {
+    private getDefaultNodeIcon(): string {
         if (this.props.node.derived.length !== 0) {
             return 'parent-tree-icon';
         } else {
             return 'default-tree-icon';
         }
     }
-    getToggleIcon(): string {
+    private getToggleIcon(): string {
         if (this.props.node.derived.length === 0) {
             return undefined;
         } else {
@@ -88,7 +89,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
     }
 
-    boldNode(classLabel: string): Boolean {
+    private boldNode(classLabel: string): Boolean {
         if (Boolean(this.props.searchResult) && this.props.searchResult.length !== 0) {
             if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                 return true;
@@ -110,14 +111,14 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         let bold = this.boldNode(classLabel);
 
         return (
-            <div className='container' role='treeitem'>
+            <div className='container' role='tree-item'>
                 <div className={this.getToggleIcon()} onClick={this.toggle} />
+
                 <div className={this.state.mapClassIcons && this.state.mapClassIcons[node.id] ?
                     this.state.mapClassIcons[node.id] : this.getDefaultNodeIcon()} />
-                <div className={this.getDefaultNodeIcon().replace(/icon/g, 'class')}
-                    onClick={this.showInstances}
+
+                <div className='tree-class' onClick={this.showInstances} draggable={true}
                     style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
-                    draggable={true}
                     onDragStart={e => {
                         const elementId = [node.id];
                         try {
@@ -127,8 +128,7 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                         }
                         return false;
                     }}>
-                    {classLabel}
-                    {Boolean(node.count) ? (<span className='class-count'>{node.count}</span>) : null}
+                    {classLabel} {Boolean(node.count) ? (<span className='class-count'>{node.count}</span>) : null}
                 </div>
                 {node.derived && node.derived.length !== 0 ? (
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} searchResult={searchResult}
