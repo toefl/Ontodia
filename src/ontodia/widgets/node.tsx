@@ -127,8 +127,8 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
                         }
                         return false;
                     }}>
-                    {classLabel/*  + (node.count !== undefined ? (' (' + node.count + ')') : '') */}
-                    <span className='class-count'>{node.count !== undefined ? (node.count) : ''}</span>
+                    {classLabel}
+                    {Boolean(node.count) ? (<span className='class-count'>{node.count}</span>) : null}
                 </div>
                 {node.derived && node.derived.length !== 0 ? (
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} searchResult={searchResult}
