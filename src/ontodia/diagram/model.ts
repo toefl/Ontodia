@@ -198,11 +198,22 @@ export class DiagramModel {
         return { layoutData, linkSettings };
     }
 
+    private cycle(base: FatClassModel, id: string): Boolean {
+        if ( base && this.graph.getClass(id).base && this.graph.getClass(id).base.id !== base.id) {
+            return false;
+        } else if (this.graph.getClass(id).base === undefined && base !== undefined) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     private setClassTree(rootClasses: ClassModel[]) {
         const addClass = (base: FatClassModel | undefined, classModel: ClassModel) => {
             const { id, label, count, children } = classModel;
             const richClass = new FatClassModel({ id, label: label.values, count });
-            if (!Boolean(this.graph.getClass(richClass.id))) {
+            // if the class is not added, or does not form a loop
+            if (!Boolean(this.graph.getClass(richClass.id)) || !this.cycle(base,id)) {
                 richClass.setBase(base);
                 this.graph.addClass(richClass);
                 for (const child of children) {

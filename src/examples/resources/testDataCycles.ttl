@@ -30,6 +30,7 @@
 test:class1 a owl:Class .
 test:class1 rdfs:subClassOf test:class10.
 test:class1 rdfs:subClassOf owl:Thing.
+test:class4 rdfs:subClassOf owl:Class.
 #---------------------------------
 
 test:class2 a owl:Class .

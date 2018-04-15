@@ -159,7 +159,6 @@ export class ClassTree extends React.PureComponent<ClassTreeProps, ClassTreeStat
         let classes = view.model.getClasses();
         let baseClasses: Array<FatClassModel> = [];
         let notBaseClasses: Array<FatClassModel> = [];
-        console.log('Classes count: ' + classes.length);
         classes.forEach(elem => {
             this.findBaseClasses(elem, baseClasses, notBaseClasses);
         });
