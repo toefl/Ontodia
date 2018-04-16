@@ -5,58 +5,45 @@ import { FatClassModel } from '../diagram/elements';
 import { formatLocalizedLabel } from '../diagram/model';
 import { TreeNodes } from './treeNodes';
 
-export interface NodeTreeProps {
+export interface Props {
     node: FatClassModel;
-    lang?: Readonly<string> | undefined;
-    searchResult?: Array<FatClassModel> | undefined;
-    searchString?: string | undefined;
+    lang?: string;
+    classesToDisplay?: Array<FatClassModel>;
+    searchString?: string;
     onClassSelected: (classId: string) => void;
     onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
 }
 
-export interface ClassTreeState {
-    expanded?: Boolean | undefined;
-    bgColor?: string | undefined;
-    mapClassIcons?: { [typeId: string]: string } | undefined;
+export interface State {
+    expanded?: Boolean;
+    bgColor?: string;
+    mapClassIcons?: { [typeId: string]: string };
 }
 
 const CLASS_NAME = 'ontodia-class-tree';
 
-export class Node extends React.PureComponent<NodeTreeProps, ClassTreeState> {
-    constructor(props: NodeTreeProps) {
+export class Node extends React.Component<Props, State> {
+    constructor(props: Props) {
         super(props);
-        let resultEmpty = !(this.props.searchResult && this.props.searchResult.length !== 0);
+        let resultEmpty = !(this.props.classesToDisplay && this.props.classesToDisplay.length !== 0);
         if (resultEmpty) {
             this.state = { expanded: false };
         } else {
             this.state = { expanded: true };
         }
-
-        /* customization 
-        let iconMap: { [typeId: string]: string } = {};
-        iconMap['http://ailab.ifmo.ru/dialog/tv/schema#PropertyAsGoods'] = 'custom-parent-tree-icon';
-        iconMap['http://www.w3.org/2002/07/owl#Thing'] = 'custom-parent-tree-icon';
-        iconMap['http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'] = 'custom-child-tree-icon';
-        if (Object.keys(iconMap).length !== 0) {
-            if (resultEmpty) {
-                this.state = { mapClassIcons: iconMap, expanded: false };
-            } else {
-                this.state = { mapClassIcons: iconMap, expanded: true };
-            }
-        } */
         this.toggle = this.toggle.bind(this);
         this.showInstances = this.showInstances.bind(this);
     }
 
-    componentWillReceiveProps(nextProps: NodeTreeProps) {
-        const { searchResult } = nextProps;
-        if (searchResult !== this.props.searchResult) {
+    componentWillReceiveProps(nextProps: Props) {
+        const { classesToDisplay } = nextProps;
+        if (classesToDisplay !== this.props.classesToDisplay) {
             this.setState({ expanded: false });
         }
-        if (searchResult && searchResult.length !== 0) {
+        if (classesToDisplay && classesToDisplay.length !== 0) {
             this.setState({ expanded: true });
         }
-        if (this.state.bgColor === 'rgb(190,235,255)') {
+        if (this.state.bgColor !== undefined) {
             this.setState({ bgColor: undefined });
         }
     }
@@ -90,22 +77,20 @@ export class Node extends React.PureComponent<NodeTreeProps, ClassTreeState> {
     }
 
     private boldNode(classLabel: string): Boolean {
-        if (Boolean(this.props.searchResult) && this.props.searchResult.length !== 0) {
+        if (Boolean(this.props.classesToDisplay) && this.props.classesToDisplay.length !== 0) {
             if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                 return true;
             }
-            try { // FatClassModel from dbpedia does not contain information about count
+            if (Boolean(this.props.node.count)){
                 if (this.props.node.count.toString().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                     return true;
                 }
-            } catch (err) {
-                // console.error("class.count === undefined. The search for count will be ignored.")
             }
         }
         return false;
     }
     render(): React.ReactElement<any> {
-        const { node, searchResult, searchString, lang, onClassSelected } = this.props;
+        const { node, classesToDisplay, searchString, lang, onClassSelected } = this.props;
         const bgColor = this.state.bgColor;
         let classLabel = formatLocalizedLabel(node.id, node.label, lang);
         let bold = this.boldNode(classLabel);
@@ -131,7 +116,7 @@ export class Node extends React.PureComponent<NodeTreeProps, ClassTreeState> {
                     {classLabel} {Boolean(node.count) ? (<span className='class-count'>{node.count}</span>) : null}
                 </div>
                 {node.derived && node.derived.length !== 0 ? (
-                    <TreeNodes roots={node.derived} expanded={this.state.expanded} searchResult={searchResult}
+                    <TreeNodes roots={node.derived} expanded={this.state.expanded} classesToDisplay={classesToDisplay}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
                 ) : (null)}
             </div>

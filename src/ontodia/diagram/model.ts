@@ -100,7 +100,7 @@ export class DiagramModel {
 
     private subscribeGraph() {
         this.graphListener.listen(this.graph.events, 'changeCells', () => {
-            this.source.trigger('changeCells', { source: this });
+            this.source.trigger('changeCells', {source: this});
         });
         this.graphListener.listen(this.graph.events, 'elementEvent', e => {
             this.source.trigger('elementEvent', e);
@@ -118,13 +118,13 @@ export class DiagramModel {
             this.source.trigger('classEvent', e);
         });
 
-        this.source.trigger('changeCells', { source: this });
+        this.source.trigger('changeCells', {source: this});
     }
 
     createNewDiagram(dataProvider: DataProvider): Promise<void> {
         this.resetGraph();
         this.dataProvider = dataProvider;
-        this.source.trigger('loadingStart', { source: this });
+        this.source.trigger('loadingStart', {source: this});
 
         return Promise.all<any>([
             this.dataProvider.classTree(),
@@ -138,15 +138,15 @@ export class DiagramModel {
             });
         }).catch(error => {
             console.error(error);
-            this.source.trigger('loadingError', { source: this, error });
+            this.source.trigger('loadingError', {source: this, error});
             return Promise.reject(error);
         });
     }
 
     private initLinkTypes(linkTypes: LinkType[]): FatLinkType[] {
         const types: FatLinkType[] = [];
-        for (const { id, label } of linkTypes) {
-            const linkType = new FatLinkType({ id, label: label.values });
+        for (const {id, label} of linkTypes) {
+            const linkType = new FatLinkType({id, label: label.values});
             this.graph.addLinkType(linkType);
             types.push(linkType);
         }
@@ -163,7 +163,7 @@ export class DiagramModel {
     }): Promise<void> {
         this.resetGraph();
         this.dataProvider = params.dataProvider;
-        this.source.trigger('loadingStart', { source: this });
+        this.source.trigger('loadingStart', {source: this});
 
         return Promise.all<ClassModel[], LinkType[]>([
             this.dataProvider.classTree(),
@@ -183,7 +183,7 @@ export class DiagramModel {
             });
         }).catch(error => {
             console.error(error);
-            this.source.trigger('loadingError', { source: this, error });
+            this.source.trigger('loadingError', {source: this, error});
             return Promise.reject(error);
         });
     }
@@ -194,12 +194,11 @@ export class DiagramModel {
     } {
         const layoutData = exportLayoutData(this.graph.getElements(), this.graph.getLinks());
         const linkSettings = this.graph.getLinkTypes()
-            .map(({ id, visible, showLabel }) => ({ id, visible, showLabel }));
-        return { layoutData, linkSettings };
+            .map(({id, visible, showLabel}) => ({id, visible, showLabel}));
+        return {layoutData, linkSettings};
     }
-
-    private cycle(base: FatClassModel, id: string): Boolean {
-        if ( base && this.graph.getClass(id).base && this.graph.getClass(id).base.id !== base.id) {
+    private cycle(base: FatClassModel, id: string): boolean {
+        if (base && this.graph.getClass(id).base && this.graph.getClass(id).base.id !== base.id) {
             return false;
         } else if (this.graph.getClass(id).base === undefined && base !== undefined) {
             return false;
@@ -210,7 +209,7 @@ export class DiagramModel {
 
     private setClassTree(rootClasses: ClassModel[]) {
         const addClass = (base: FatClassModel | undefined, classModel: ClassModel) => {
-            const { id, label, count, children } = classModel;
+            const {id, label, count, children} = classModel;
             const richClass = new FatClassModel({ id, label: label.values, count });
             // if the class is not added, or does not form a loop
             if (!Boolean(this.graph.getClass(richClass.id)) || !this.cycle(base,id)) {
@@ -230,11 +229,11 @@ export class DiagramModel {
 
     private setLinkSettings(settings: LinkTypeOptions[]) {
         for (const setting of settings) {
-            const { id: linkTypeId, visible = true, showLabel = true } = setting;
-            this.linkSettings[linkTypeId] = { id: linkTypeId, visible, showLabel };
+            const {id: linkTypeId, visible = true, showLabel = true} = setting;
+            this.linkSettings[linkTypeId] = {id: linkTypeId, visible, showLabel};
             const linkType = this.getLinkType(linkTypeId);
             if (linkType) {
-                linkType.setVisibility({ visible, showLabel });
+                linkType.setVisibility({visible, showLabel});
             }
         }
     }
@@ -247,7 +246,7 @@ export class DiagramModel {
         hideUnusedLinkTypes?: boolean;
     }) {
         const {
-            layoutData = { cells: [] },
+            layoutData = {cells: []},
             preloadedElements = {},
             markLinksAsLayoutOnly,
             hideUnusedLinkTypes,
@@ -259,10 +258,10 @@ export class DiagramModel {
         const normalizedCells = layoutData.cells.map(normalizeImportedCell);
         for (const cell of normalizedCells) {
             if (cell.type === 'element') {
-                const { id, iri, position, size, isExpanded, group } = cell;
+                const {id, iri, position, size, isExpanded, group} = cell;
                 const template = preloadedElements[iri];
                 const data = template || placeholderTemplateFromIri(iri);
-                const element = new Element({ id, data, position, size, expanded: isExpanded, group });
+                const element = new Element({id, data, position, size, expanded: isExpanded, group});
                 this.graph.addElement(element);
                 if (!template) {
                     elementIrisToRequestData.push(element.iri);
@@ -272,7 +271,7 @@ export class DiagramModel {
 
         for (const cell of normalizedCells) {
             if (cell.type === 'link') {
-                const { id, typeId, source, target, vertices } = cell;
+                const {id, typeId, source, target, vertices} = cell;
                 const linkType = this.createLinkType(typeId);
                 usedLinkTypes[linkType.id] = linkType;
                 const link = this.createLink({
@@ -296,7 +295,7 @@ export class DiagramModel {
         if (hideUnusedLinkTypes && params.allLinkTypes) {
             this.hideUnusedLinkTypes(params.allLinkTypes, usedLinkTypes);
         }
-        this.source.trigger('loadingSuccess', { source: this });
+        this.source.trigger('loadingSuccess', {source: this});
         return Promise.resolve();
     }
 
@@ -318,7 +317,7 @@ export class DiagramModel {
         if (elementIris.length === 0) {
             return Promise.resolve();
         }
-        return this.dataProvider.elementInfo({ elementIds: [...elementIris] })
+        return this.dataProvider.elementInfo({elementIds: [...elementIris]})
             .then(models => this.onElementInfoLoaded(models))
             .catch(err => {
                 console.error(err);
@@ -334,10 +333,10 @@ export class DiagramModel {
             elementIds: this.elements.map(element => element.iri),
             linkTypeIds: linkTypes,
         }).then(links => this.onLinkInfoLoaded(links))
-            .catch(err => {
-                console.error(err);
-                return Promise.reject(err);
-            });
+        .catch(err => {
+            console.error(err);
+            return Promise.reject(err);
+        });
     }
 
     getPropertyById(propertyId: string): RichProperty {
@@ -347,16 +346,16 @@ export class DiagramModel {
         }
         const property = new RichProperty({
             id: propertyId,
-            label: [{ lang: '', text: uri2name(propertyId) }],
+            label: [{lang: '', text: uri2name(propertyId)}],
         });
         this.graph.addProperty(property);
         this.propertyLabelFetching.push(propertyId).then(propertyIds => {
             if (!this.dataProvider.propertyInfo) { return; }
             if (propertyIds.length === 0) { return; }
-            this.dataProvider.propertyInfo({ propertyIds }).then(propertyModels => {
+            this.dataProvider.propertyInfo({propertyIds}).then(propertyModels => {
                 for (const propId in propertyModels) {
                     if (!Object.hasOwnProperty.call(propertyModels, propertyId)) { continue; }
-                    const { id, label } = propertyModels[propId];
+                    const {id, label} = propertyModels[propId];
                     const targetProperty = this.graph.getProperty(id);
                     if (targetProperty) {
                         targetProperty.setLabel(label.values);
@@ -378,14 +377,14 @@ export class DiagramModel {
         }
         const classModel = new FatClassModel({
             id: classId,
-            label: [{ lang: '', text: uri2name(classId) }],
+            label: [{lang: '', text: uri2name(classId)}],
         });
         this.graph.addClass(classModel);
 
         this.classFetching.push(classId).then(classIds => {
             if (classIds.length === 0) { return; }
-            this.dataProvider.classInfo({ classIds }).then(classInfos => {
-                for (const { id, label, count } of classInfos) {
+            this.dataProvider.classInfo({classIds}).then(classInfos => {
+                for (const {id, label, count} of classInfos) {
                     const model = this.graph.getClass(id);
                     if (!model) { continue; }
                     model.setLabel(label.values);
@@ -400,7 +399,7 @@ export class DiagramModel {
 
     createElement(elementIriOrModel: string | ElementModel, group?: string): Element {
         const elementIri = typeof elementIriOrModel === 'string'
-            ? elementIriOrModel : elementIriOrModel.id;
+                ? elementIriOrModel : elementIriOrModel.id;
 
         const elements = this.elements.filter(el => el.iri === elementIri && el.group === group);
         if (elements.length > 0) {
@@ -410,8 +409,8 @@ export class DiagramModel {
 
         let data = typeof elementIriOrModel === 'string'
             ? placeholderTemplateFromIri(elementIri) : elementIriOrModel;
-        data = { ...data, id: data.id };
-        const element = new Element({ id: `element_${generate64BitID()}`, data, group });
+        data = {...data, id: data.id};
+        const element = new Element({id: `element_${generate64BitID()}`, data, group});
         this.history.execute(
             addElement(this.graph, element, [])
         );
@@ -435,20 +434,20 @@ export class DiagramModel {
         }
         const linkType = new FatLinkType({
             id: linkTypeId,
-            label: [{ text: uri2name(linkTypeId), lang: '' }],
+            label: [{text: uri2name(linkTypeId), lang: ''}],
         });
 
         const setting = this.linkSettings[linkType.id];
         if (setting) {
-            const { visible, showLabel } = setting;
-            linkType.setVisibility({ visible, showLabel, preventLoading: true });
+            const {visible, showLabel} = setting;
+            linkType.setVisibility({visible, showLabel, preventLoading: true});
         }
 
         this.graph.addLinkType(linkType);
         this.linkFetching.push(linkTypeId).then(linkTypeIds => {
             if (linkTypeIds.length === 0) { return; }
-            this.dataProvider.linkTypesInfo({ linkTypeIds }).then(linkTypesInfo => {
-                for (const { id, label } of linkTypesInfo) {
+            this.dataProvider.linkTypesInfo({linkTypeIds}).then(linkTypesInfo => {
+                for (const {id, label} of linkTypesInfo) {
                     const model = this.graph.getLinkType(id);
                     if (!model) { continue; }
                     model.setLabel(label.values);
@@ -487,14 +486,14 @@ export class DiagramModel {
     }
 
     private createLinks(linkModel: LinkModel, linkType: FatLinkType) {
-        const { sourceId, targetId } = linkModel;
+        const {sourceId, targetId} = linkModel;
         const sources = this.elements.filter(el => el.iri === sourceId);
         const targets = this.elements.filter(el => el.iri === targetId);
 
         for (const source of sources) {
             for (const target of targets) {
-                const data = { ...linkModel, sourceId: source.id, targetId: target.id };
-                this.createLink({ data, linkType });
+                const data = {...linkModel, sourceId: source.id, targetId: target.id};
+                this.createLink({data, linkType});
             }
         }
     }
@@ -504,7 +503,7 @@ export class DiagramModel {
         linkType: FatLinkType;
         vertices?: ReadonlyArray<Vector>;
     }): Link {
-        const { data, linkType, vertices } = params;
+        const {data, linkType, vertices} = params;
         if (data.linkTypeId !== linkType.id) {
             throw new Error('linkTypeId must match linkType.id');
         }
@@ -523,7 +522,7 @@ export class DiagramModel {
             return undefined;
         }
 
-        const link = new Link({ id: `link_${generate64BitID()}`, data, vertices });
+        const link = new Link({id: `link_${generate64BitID()}`, data, vertices});
         this.graph.addLink(link);
         return link;
     }
@@ -565,7 +564,7 @@ function placeholderTemplateFromIri(iri: string): ElementModel {
     return {
         id: iri,
         types: [],
-        label: { values: [] },
+        label: {values: []},
         properties: {},
     };
 }
@@ -605,8 +604,8 @@ export function chooseLocalizedText(
     }
     return (
         defaultValue !== undefined ? defaultValue :
-            englishValue !== undefined ? englishValue :
-                texts[0]
+        englishValue !== undefined ? englishValue :
+        texts[0]
     );
 }
 
