@@ -6,6 +6,7 @@ import { DiagramView } from '../diagram/view';
 import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
 import { TreeNodes } from './treeNodes';
+import { Debouncer } from '../viewUtils/async';
 
 export interface Props {
     view: DiagramView;
@@ -23,11 +24,11 @@ const CLASS_NAME = 'ontodia-class-tree';
 
 export class ClassTree extends React.Component<Props, State> {
     private readonly listener = new EventObserver();
+    private readonly searchDebouncer = new Debouncer(400 /* ms */);
 
     constructor(props: Props) {
         super(props);
         this.state = ({});
-        this.search = _.debounce(this.search, 400 /* ms */);
     }
 
     componentDidMount() {
@@ -43,6 +44,7 @@ export class ClassTree extends React.Component<Props, State> {
 
     componentWillUnmount() {
         this.listener.stopListening();
+        this.searchDebouncer.dispose();
     }
 
     render() {
@@ -69,7 +71,8 @@ export class ClassTree extends React.Component<Props, State> {
         );
     }
     private onSearchKeyup = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        this.search(e.currentTarget.value);
+        const keyValue = e.currentTarget.value;
+        this.searchDebouncer.call(() => this.search(keyValue));
     }
     private search = (searchString: string) => {
         if (searchString.trim().length === 0) {

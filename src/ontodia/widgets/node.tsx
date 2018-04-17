@@ -52,10 +52,11 @@ export class Node extends React.Component<Props, State> {
         this.setState({ expanded: !this.state.expanded });
     }
 
-    private showInstances() {
+    private showInstances(e: React.MouseEvent<HTMLAnchorElement>) {
         this.setState({ bgColor: 'rgb(190,235,255)' });
         this.props.onClassSelected(this.props.node.id);
-    }
+        e.preventDefault();
+    };
 
     private getDefaultNodeIcon(): string {
         if (this.props.node.derived.length !== 0) {
@@ -81,7 +82,7 @@ export class Node extends React.Component<Props, State> {
             if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                 return true;
             }
-            if (Boolean(this.props.node.count)){
+            if (Boolean(this.props.node.count)) {
                 if (this.props.node.count.toString().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                     return true;
                 }
@@ -102,19 +103,11 @@ export class Node extends React.Component<Props, State> {
                 <div className={this.state.mapClassIcons && this.state.mapClassIcons[node.id] ?
                     this.state.mapClassIcons[node.id] : this.getDefaultNodeIcon()} />
 
-                <div className='tree-class' onClick={this.showInstances} draggable={true}
-                    style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}
-                    onDragStart={e => {
-                        const elementId = [node.id];
-                        try {
-                            e.dataTransfer.setData('application/x-ontodia-elements', JSON.stringify(elementId));
-                        } catch (ex) { // IE fix
-                            e.dataTransfer.setData('text', JSON.stringify(elementId));
-                        }
-                        return false;
-                    }}>
-                    {classLabel} {Boolean(node.count) ? (<span className='class-count'>{node.count}</span>) : null}
-                </div>
+                <a href={node.id} className='tree-class' onClick={(e) => this.showInstances(e)}
+                    style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}>
+                    {classLabel} {Boolean(node.count) ? (<span className='ontodia-badge'>{node.count}</span>) : null}
+                </a>
+ 
                 {node.derived && node.derived.length !== 0 ? (
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} classesToDisplay={classesToDisplay}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
