@@ -211,7 +211,7 @@ export class DiagramModel {
             const {id, label, count, children} = classModel;
             const richClass = new FatClassModel({ id, label: label.values, count });
             // if the class is not added, or does not form a loop
-            if (!Boolean(this.graph.getClass(richClass.id)) || !this.cycle(base,id)) {
+            if (!Boolean(this.graph.getClass(richClass.id)) || !this.cycle(base, id)) {
                 richClass.setBase(base);
                 this.graph.addClass(richClass);
                 for (const child of children) {

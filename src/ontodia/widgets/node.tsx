@@ -11,11 +11,11 @@ export interface Props {
     classesToDisplay?: Array<FatClassModel>;
     searchString?: string;
     onClassSelected: (classId: string) => void;
-    onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
+    onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number }) => void;
 }
 
 export interface State {
-    expanded?: Boolean;
+    expanded?: boolean;
     bgColor?: string;
     mapClassIcons?: { [typeId: string]: string };
 }
@@ -25,7 +25,7 @@ const CLASS_NAME = 'ontodia-class-tree';
 export class Node extends React.Component<Props, State> {
     constructor(props: Props) {
         super(props);
-        let resultEmpty = !(this.props.classesToDisplay && this.props.classesToDisplay.length !== 0);
+        const resultEmpty = !(this.props.classesToDisplay && this.props.classesToDisplay.length !== 0);
         if (resultEmpty) {
             this.state = { expanded: false };
         } else {
@@ -56,7 +56,7 @@ export class Node extends React.Component<Props, State> {
         this.setState({ bgColor: 'rgb(190,235,255)' });
         this.props.onClassSelected(this.props.node.id);
         e.preventDefault();
-    };
+    }
 
     private getDefaultNodeIcon(): string {
         if (this.props.node.derived.length !== 0) {
@@ -77,7 +77,7 @@ export class Node extends React.Component<Props, State> {
         }
     }
 
-    private boldNode(classLabel: string): Boolean {
+    private boldNode(classLabel: string): boolean {
         if (Boolean(this.props.classesToDisplay) && this.props.classesToDisplay.length !== 0) {
             if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
                 return true;
@@ -93,8 +93,8 @@ export class Node extends React.Component<Props, State> {
     render(): React.ReactElement<any> {
         const { node, classesToDisplay, searchString, lang, onClassSelected } = this.props;
         const bgColor = this.state.bgColor;
-        let classLabel = formatLocalizedLabel(node.id, node.label, lang);
-        let bold = this.boldNode(classLabel);
+        const classLabel = formatLocalizedLabel(node.id, node.label, lang);
+        const bold = this.boldNode(classLabel);
 
         return (
             <div className='container' role='tree-item'>
@@ -107,7 +107,7 @@ export class Node extends React.Component<Props, State> {
                     style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}>
                     {classLabel} {Boolean(node.count) ? (<span className='ontodia-badge'>{node.count}</span>) : null}
                 </a>
- 
+
                 {node.derived && node.derived.length !== 0 ? (
                     <TreeNodes roots={node.derived} expanded={this.state.expanded} classesToDisplay={classesToDisplay}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />

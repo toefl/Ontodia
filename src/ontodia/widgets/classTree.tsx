@@ -85,14 +85,14 @@ export class ClassTree extends React.Component<Props, State> {
         if (searchString === this.state.searchString) {
             return;
         }
-        let searchResult: Array<FatClassModel> = [];
+        const searchResult: Array<FatClassModel> = [];
         this.state.roots.forEach(node => {
             this.deepSearch(searchString, node, searchResult);
         });
         this.setState({ classesToDisplay: this.getClassesToDisplay(searchResult), searchString: searchString });
     }
     private deepSearch = (searchString: string, node: FatClassModel, searchResult: Array<FatClassModel>): void => {
-        let classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
+        const classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
         if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
             searchResult.push(node);
         }
@@ -118,7 +118,7 @@ export class ClassTree extends React.Component<Props, State> {
         return classesToDisplay;
     }
     private getUnique(nodes: Array<FatClassModel>) {
-        let uniqueClasses = [];
+        const uniqueClasses = [];
         for (const node of nodes) {
             if (uniqueClasses.indexOf(node) === -1) {
                 uniqueClasses.push(node);
@@ -149,9 +149,9 @@ export class ClassTree extends React.Component<Props, State> {
     }
     private refreshClassTree(): void {
         const { view } = this.props;
-        let classes = view.model.getClasses();
-        let baseClasses: Array<FatClassModel> = [];
-        let notBaseClasses: Array<FatClassModel> = [];
+        const classes = view.model.getClasses();
+        const baseClasses: Array<FatClassModel> = [];
+        const notBaseClasses: Array<FatClassModel> = [];
         classes.forEach(elem => {
             this.findBaseClasses(elem, baseClasses, notBaseClasses);
         });
