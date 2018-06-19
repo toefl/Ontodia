@@ -6,7 +6,7 @@ import { Node } from './node';
 
 export interface Props {
     roots?: ReadonlyArray<FatClassModel>;
-    expanded?: Boolean;
+    expanded?: boolean;
     classesToDisplay?: Array<FatClassModel>;
     searchString?: string;
     lang?: Readonly<string>;
@@ -26,7 +26,7 @@ export class TreeNodes extends React.Component<Props, {}> {
         this.compare = this.compare.bind(this);
     }
 
-    filter(root: FatClassModel): Boolean {
+    filter(root: FatClassModel): boolean {
         const { classesToDisplay } = this.props;
         if (classesToDisplay && classesToDisplay.length > 0) {
             return Boolean(classesToDisplay.find(resultRoot => resultRoot === root));
@@ -34,10 +34,10 @@ export class TreeNodes extends React.Component<Props, {}> {
             return true;
         }
     }
-    
+
     compare(node1: FatClassModel, node2: FatClassModel) {
-        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.props.lang);
-        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.props.lang);
+        const classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.props.lang);
+        const classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.props.lang);
         return classLabel1 < classLabel2 ? -1 : 1;
     }
 
@@ -48,7 +48,7 @@ export class TreeNodes extends React.Component<Props, {}> {
     }
 
     render() {
-        let { expanded, classesToDisplay, searchString, lang, onClassSelected } = this.props;
+        const { expanded, classesToDisplay, searchString, lang, onClassSelected } = this.props;
         const roots = this.getRenderRoots();
 
         return (
