@@ -1,27 +1,15 @@
 import * as React from 'react';
 import * as _ from 'lodash';
 
-<<<<<<< HEAD
-=======
-import { Dictionary, LocalizedString, ClassIri } from '../data/model';
->>>>>>> 4265f961637a1c36e3d7a0d18d9d19ab85d819d3
 import { FatClassModel } from '../diagram/elements';
 import { DiagramView } from '../diagram/view';
 import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
 import { TreeNodes } from './treeNodes';
 import { Debouncer } from '../viewUtils/async';
+import { ClassIri } from '../..';
 
-<<<<<<< HEAD
 export interface Props {
-=======
-// bundling jstree to solve issues with multiple jquery packages,
-// when jstree sets itself as plugin to wrong version of jquery
-const jstreeJQuery = require<JQueryStatic>('exports-loader?require("jquery")!jstree');
-require('jstree/dist/themes/default/style.css');
-
-export interface ClassTreeProps {
->>>>>>> 4265f961637a1c36e3d7a0d18d9d19ab85d819d3
     view: DiagramView;
     onClassSelected: (classId: ClassIri) => void;
 }

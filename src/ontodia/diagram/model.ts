@@ -196,7 +196,7 @@ export class DiagramModel {
             .map(({id, visible, showLabel}) => ({id, visible, showLabel}));
         return {layoutData, linkSettings};
     }
-    private cycle(base: FatClassModel, id: string): boolean {
+    private cycle(base: FatClassModel, id: ClassIri): boolean {
         if (base && this.graph.getClass(id).base && this.graph.getClass(id).base.id !== base.id) {
             return false;
         } else if (this.graph.getClass(id).base === undefined && base !== undefined) {
