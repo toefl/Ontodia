@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Component, ReactElement, SVGAttributes, CSSProperties } from 'react';
 
-import { LocalizedString } from '../data/model';
+import { LocalizedString, LinkTypeIri } from '../data/model';
 import {
     LinkTemplate, LinkStyle, LinkLabel as LinkLabelProperties, LinkMarkerStyle,
     LinkRouter, RoutedLinks, RoutedLink,
@@ -53,6 +53,7 @@ export class LinkLayer extends Component<LinkLayerProps, {}> {
     componentDidMount() {
         const {view} = this.props;
 
+        this.listener.listen(view.events, 'changeLanguage', this.scheduleUpdateAll);
         this.listener.listen(view.model.events, 'changeCells', this.scheduleUpdateAll);
         this.listener.listen(view.model.events, 'elementEvent', ({key, data}) => {
             if (!(data.changePosition || data.changeSize)) { return; }
@@ -217,7 +218,7 @@ interface LinkViewProps {
 const LINK_CLASS = 'ontodia-link';
 
 class LinkView extends Component<LinkViewProps, {}> {
-    private templateTypeId: string;
+    private templateTypeId: LinkTypeIri;
     private template: LinkTemplate;
 
     constructor(props: LinkViewProps, context: any) {
@@ -380,7 +381,7 @@ function getPathAttributes(model: DiagramLink, style: LinkStyle): SVGAttributes<
     return {fill, stroke, strokeWidth, strokeDasharray};
 }
 
-function getLabelTextAttributes(label: LinkLabelProperties): TextAttributes {
+function getLabelTextAttributes(label: LinkLabelProperties): CSSProperties {
     const {
         fill = 'black',
         stroke = 'none',
@@ -389,10 +390,13 @@ function getLabelTextAttributes(label: LinkLabelProperties): TextAttributes {
         'font-size': fontSize = 'inherit',
         'font-weight': fontWeight = 'bold',
     } = label.attrs ? label.attrs.text : {};
-    return {fill, stroke, strokeWidth, fontFamily, fontSize, fontWeight};
+    return {
+        fill, stroke, strokeWidth, fontFamily, fontSize,
+        fontWeight: fontWeight as CSSProperties['fontWeight']
+    };
 }
 
-function getLabelRectAttributes(label: LinkLabelProperties): RectAttributes {
+function getLabelRectAttributes(label: LinkLabelProperties): CSSProperties {
     const {
         fill = 'white',
         stroke = 'none',
@@ -405,24 +409,9 @@ interface LabelAttributes {
     offset: number;
     text: LocalizedString;
     attributes: {
-        text: TextAttributes;
-        rect: RectAttributes;
+        text: CSSProperties;
+        rect: CSSProperties;
     };
-}
-
-interface TextAttributes {
-    stroke?: string;
-    strokeWidth?: number;
-    fill?: string;
-    fontFamily?: string;
-    fontSize?: string | number;
-    fontWeight?: 'normal' | 'bold' | 'lighter' | 'bolder' | number;
-}
-
-interface RectAttributes {
-    fill?: string;
-    stroke?: string;
-    strokeWidth?: number;
 }
 
 interface LinkLabelProps {
@@ -540,15 +529,10 @@ export class LinkMarkers extends Component<{ view: DiagramView }, {}> {
 
     render() {
         const {view} = this.props;
-        const templates = view.getLinkTemplates();
         const markers: Array<ReactElement<LinkMarkerProps>> = [];
 
-        for (const linkTypeId in templates) {
-            if (!templates.hasOwnProperty(linkTypeId)) { continue; }
-
+        view.getLinkTemplates().forEach((template, linkTypeId) => {
             const typeIndex = view.model.getLinkType(linkTypeId).index;
-            const template = templates[linkTypeId];
-
             if (template.markerSource) {
                 markers.push(
                     <LinkMarker key={typeIndex * 2}
@@ -567,7 +551,7 @@ export class LinkMarkers extends Component<{ view: DiagramView }, {}> {
                     />
                 );
             }
-        }
+        });
 
         return <defs>{markers}</defs>;
     }

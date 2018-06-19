@@ -1,6 +1,9 @@
 import * as N3 from 'n3';
 import { DataProvider, LinkElementsParams, FilterParams } from '../provider';
-import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel } from '../model';
+import {
+    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel,
+    ElementIri, ClassIri, LinkTypeIri, PropertyTypeIri,
+} from '../model';
 import {
     triplesToElementBinding,
     getClassTree,
@@ -12,7 +15,6 @@ import {
     getLinksTypeIds,
     getFilteredData,
     getEnrichedElementsInfo,
-    getLinkTypesInfo,
     getLinksTypesOf,
     getLinkStatistics,
 } from './responseHandler';
@@ -27,10 +29,10 @@ import { parseTurtleText } from './turtle';
 export enum SparqlQueryMethod { GET = 1, POST }
 
 export type QueryFunction = (params: {
-    url: string,
-    body?: string,
-    headers: { [header: string]: string },
-    method: string,
+    url: string;
+    body?: string;
+    headers: { [header: string]: string };
+    method: string;
 }) => Promise<Response>;
 
 /**
@@ -92,7 +94,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<ClassBinding>(query).then(getClassTree);
     }
 
-    propertyInfo(params: { propertyIds: string[] }): Promise<Dictionary<PropertyModel>> {
+    propertyInfo(params: { propertyIds: PropertyTypeIri[] }): Promise<Dictionary<PropertyModel>> {
         const ids = params.propertyIds.map(escapeIri).map(id => ` ( ${id} )`).join(' ');
         const query = this.settings.defaultPrefix + `
             SELECT ?prop ?label
@@ -104,7 +106,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<PropertyBinding>(query).then(getPropertyInfo);
     }
 
-    classInfo(params: { classIds: string[] }): Promise<ClassModel[]> {
+    classInfo(params: { classIds: ClassIri[] }): Promise<ClassModel[]> {
         const ids = params.classIds.map(escapeIri).map(id => ` ( ${id} )`).join(' ');
         const query = this.settings.defaultPrefix + `
             SELECT ?class ?label ?instcount
@@ -117,7 +119,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<ClassBinding>(query).then(getClassInfo);
     }
 
-    linkTypesInfo(params: {linkTypeIds: string[]}): Promise<LinkType[]> {
+    linkTypesInfo(params: { linkTypeIds: LinkTypeIri[] }): Promise<LinkType[]> {
         const ids = params.linkTypeIds.map(escapeIri).map(id => ` ( ${id} )`).join(' ');
         const query = this.settings.defaultPrefix + `
             SELECT ?link ?label ?instcount
@@ -127,7 +129,7 @@ export class SparqlDataProvider implements DataProvider {
                 BIND("" as ?instcount)
             }
         `;
-        return this.executeSparqlQuery<LinkTypeBinding>(query).then(getLinkTypesInfo);
+        return this.executeSparqlQuery<LinkTypeBinding>(query).then(getLinkTypes);
     }
 
     linkTypes(): Promise<LinkType[]> {
@@ -141,7 +143,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<LinkTypeBinding>(query).then(getLinkTypes);
     }
 
-    elementInfo(params: { elementIds: string[]; }): Promise<Dictionary<ElementModel>> {
+    elementInfo(params: { elementIds: ElementIri[] }): Promise<Dictionary<ElementModel>> {
         const blankIds: string[] = [];
 
         const elementIds = params.elementIds.filter(id => !BlankNodes.isEncodedBlank(id));
@@ -209,8 +211,8 @@ export class SparqlDataProvider implements DataProvider {
     }
 
     linksInfo(params: {
-        elementIds: string[];
-        linkTypeIds: string[];
+        elementIds: ElementIri[];
+        linkTypeIds: LinkTypeIri[];
     }): Promise<LinkModel[]> {
         const elementIds = params.elementIds.filter(id => !BlankNodes.isEncodedBlank(id));
 
@@ -232,7 +234,7 @@ export class SparqlDataProvider implements DataProvider {
             .then(getLinksInfo);
     }
 
-    linkTypesOf(params: { elementId: string; }): Promise<LinkCount[]> {
+    linkTypesOf(params: { elementId: ElementIri }): Promise<LinkCount[]> {
         if (this.options.acceptBlankNodes && BlankNodes.isEncodedBlank(params.elementId)) {
             return Promise.resolve(getLinksTypesOf(BlankNodes.linkTypesOf(params)));
         }
@@ -259,7 +261,7 @@ export class SparqlDataProvider implements DataProvider {
                         elementIri,
                         linkConfigurations: this.formatLinkTypesStatistics(params.elementId, id),
                         navigateElementFilterOut,
-                        navigateElementFilterIn
+                        navigateElementFilterIn,
                     });
                     requests.push(
                         this.executeSparqlQuery<LinkCountBinding>(q).then(getLinkStatistics)
@@ -318,7 +320,7 @@ export class SparqlDataProvider implements DataProvider {
         const blankNodes = this.options.acceptBlankNodes;
         const query = `${defaultPrefix}
             ${fullTextSearch.prefix}
-            
+
         SELECT ?inst ?class ?label ?blankType ${blankNodes ? BlankNodes.BLANK_NODE_QUERY_PARAMETERS : ''}
         WHERE {
             {
@@ -372,7 +374,7 @@ export class SparqlDataProvider implements DataProvider {
         return executeSparqlConstruct(this.options.endpointUrl, query, method, this.options.queryFunction);
     }
 
-    protected createRefQueryPart(params: { elementId: string; linkId?: string; direction?: 'in' | 'out'}) {
+    protected createRefQueryPart(params: { elementId: ElementIri; linkId?: LinkTypeIri; direction?: 'in' | 'out' }) {
         const {elementId, linkId, direction} = params;
         const refElementIRI = escapeIri(params.elementId);
 
@@ -406,7 +408,7 @@ export class SparqlDataProvider implements DataProvider {
 
     }
 
-    formatLinkTypesOf(elementIri: string): string {
+    formatLinkTypesOf(elementIri: ElementIri): string {
         const elementIriConst = escapeIri(elementIri);
         return this.settings.linkConfigurations.map(linkConfig => {
             let links: string[] = [];
@@ -432,7 +434,7 @@ export class SparqlDataProvider implements DataProvider {
             `);
     }
 
-    formatLinkTypesStatistics(elementIri: string, linkIri: string): string {
+    formatLinkTypesStatistics(elementIri: ElementIri, linkIri: LinkTypeIri): string {
         const elementIriConst = escapeIri(elementIri);
         const linkConfig = this.settings.linkConfigurations.find(link => link.id === linkIri);
         const linkConfigInverse = this.settings.linkConfigurations.find(link => link.inverseId === linkIri);
@@ -459,7 +461,7 @@ export class SparqlDataProvider implements DataProvider {
             `);
     }
 
-    formatLinkElements(refElementIri: string, linkIri?: string, direction?: 'in' | 'out'): string {
+    formatLinkElements(refElementIri: ElementIri, linkIri?: LinkTypeIri, direction?: 'in' | 'out'): string {
         const elementIriConst = `<${refElementIri}>`;
         let parts: string[] = [];
         if (!linkIri) {
@@ -607,10 +609,10 @@ function appendQueryParams(endpoint: string, queryParams: { [key: string]: strin
 }
 
 function queryInternal(params: {
-    url: string,
-    body?: string,
-    headers: any,
-    method: string,
+    url: string;
+    body?: string;
+    headers: any;
+    method: string;
 }) {
     return fetch(params.url, {
         method: params.method,
