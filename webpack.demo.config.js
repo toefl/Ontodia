@@ -33,6 +33,7 @@ module.exports = {
         composite: path.join(examplesDir, 'composite.ts'),
         wikidataGraph: path.join(examplesDir, 'wikidataGraph.ts'),
         toolbarCustomization: path.join(examplesDir, 'toolbarCustomization.tsx'),
+        descriptiveLogic: path.join(examplesDir, 'dlogic.ts'),
     },
     resolve: {
         alias: aliases,
@@ -146,6 +147,12 @@ module.exports = {
             chunks: ['commons', 'toolbarCustomization'],
             template: htmlTemplatePath,
         }),
+        new HtmlWebpackPlugin({
+            filename: 'descriptiveLogic.html',
+            title: 'Ontodia DL Demo',
+            chunks: ['commons', 'dlogic'],
+            template: htmlTemplatePath,
+        })
     ],
     devServer: {
         contentBase: './dist',
