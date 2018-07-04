@@ -49,6 +49,7 @@ module.exports = {
                 use: [{loader: 'url-loader'}],
             },
             {test: /\.ttl$/, use: ['raw-loader']},
+            {test: /\.txt$/, use: ['raw-loader']},
         ]
     },
     devtool: 'source-map',
@@ -150,7 +151,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             filename: 'descriptiveLogic.html',
             title: 'Ontodia DL Demo',
-            chunks: ['commons', 'dlogic'],
+            chunks: ['commons', 'descriptiveLogic'],
             template: htmlTemplatePath,
         })
     ],

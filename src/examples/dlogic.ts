@@ -1,41 +1,29 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
 
-import { Workspace, WorkspaceProps, RDFDataProvider, GroupTemplate } from '../index';
+import { Workspace, WorkspaceProps } from '../index';
 
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
-
-const N3Parser: any = require('rdf-parser-n3');
-const RdfXmlParser: any = require('rdf-parser-rdfxml');
-const JsonLdParser: any = require('rdf-parser-jsonld');
+import { DataProvider } from '../ontodia/data/provider';
+import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount,
+    ElementIri, ClassIri } from '../ontodia/data/model';
 
 const data = require<string>('./resources/logicalExpression.txt');
+alert(data);
 
+function LEParser(data: string): DataProvider {
+    let dataProvider: DataProvider;
+    dataProvider.classTree.
+    return undefined;
+}
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
-
-    const dataProvider = new RDFDataProvider({
-        data: [
-            {
-                content: data,
-                type: 'text/turtle',
-                fileName: 'logicalExpression.ttx'
-            },
-        ],
-        acceptBlankNodes: false,
-        dataFetching: false,
-        parsers: {
-            'application/rdf+xml': new RdfXmlParser(),
-            'application/ld+json': new JsonLdParser(),
-            'text/turtle': new N3Parser(),
-        },
-    });
 
     const layoutData = tryLoadLayoutFromLocalStorage();
     workspace.getModel().importLayout({
         layoutData,
+        dataProvider: LEParser(data),
         validateLinks: true,
-        dataProvider,
     });
 }
 
@@ -47,20 +35,8 @@ const props: WorkspaceProps & ClassAttributes<Workspace> = {
         window.location.reload();
     },
     viewOptions: {
-        onIriClick: iri => window.open(iri),
-        groupBy: [
-            {linkType: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', linkDirection: 'in'},
-        ],
-        templatesResolvers: [
-            types => {
-                if (types.length === 0) {
-                    // use group template only for classes
-                    return GroupTemplate;
-                }
-                return undefined;
-            }
-        ],
-    }
+        onIriClick: iri => console.log(iri),
+    },
 };
 
 onPageLoad(container => ReactDOM.render(createElement(Workspace, props), container));
