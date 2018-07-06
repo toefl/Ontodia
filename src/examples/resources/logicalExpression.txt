@@ -1,1 +1,1 @@
-concept1 ⊑ concept2
+concept1 ⊑ ¬¬(concept2 ⊓ concept3)
