@@ -1,16 +1,12 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
 
-import { Workspace, WorkspaceProps } from '../index';
-
+import { Workspace, WorkspaceProps, DemoDataProvider, LinkModel } from '../index';
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
-import { DemoDataProvider } from '../index';
-import { ClassModel, ClassIri } from '../ontodia/data/model';
+import { ClassModel, ClassIri, ElementIri, LinkTypeIri, LinkType } from '../ontodia/data/model';
 
 const data = require<string>('./resources/logicalExpression.txt');
-const LINK_TYPES = require<any>('./resources/linkTypes.json');
 const ELEMENTS = require<any>('./resources/elements.json');
-const LINKS = require<any>('./resources/links.json');
 
 function DeleteEmptyCells(concepts: Array<string>): Array<string> {
     for (let i = 0; i < concepts.length; i++) {
@@ -38,23 +34,55 @@ function CreateTruthTable(formula: string, concepts: Array<string>): Array<strin
     return truthTable;
 }
 
-function LEParser(formula: string): DemoDataProvider {
-    let concepts = formula.split(/[ ⊑ | ∃ | ⊓ | ≡ | ¬ | \( | \)]/g);
-    concepts = DeleteEmptyCells(concepts);
-    const treeConcepts: ClassModel[] = [];
-    concepts.forEach(concept => {
+function setConcepts(formulaConcepts: string[], CONCEPTS: ClassModel[]) {
+    formulaConcepts.forEach(concept => {
         const tmp: ClassModel = {
             id: concept as ClassIri,
             label: { values: [{ lang: 'eng', text: concept }] },
             count: 0,
             children: [],
         };
-        treeConcepts.push(tmp);
+        CONCEPTS.push(tmp);
     });
-    const truthTable: Array<string> = CreateTruthTable(formula, concepts);
-    if (truthTable === undefined) { alert('The original formula does not contain logical operations'); }
-    console.log(truthTable);
-    const dataProvider = new DemoDataProvider(treeConcepts, LINK_TYPES, ELEMENTS, LINKS);
+}
+
+function setLinks(formula: string, LINKS: LinkModel[], concepts: string[]) {
+    const formulaLetters = formula.replace(/\s+/g, '').split('');
+    let j = 0;
+    for (let i = 0; i < formulaLetters.length - 1; i++) {
+        if (formulaLetters[i] === '⊑' || formulaLetters[i] === '∃' || formulaLetters[i] === '⊓' || formulaLetters[i] === '≡' || formulaLetters[i] === '¬') {
+            LINKS.push({ linkTypeId: formulaLetters[i] as LinkTypeIri, sourceId: concepts[j] as ElementIri, targetId: concepts[j + 1] as ElementIri });
+            j++;
+        }
+    }
+}
+
+function setLinksTypes(LINK_TYPES: LinkType[], LINKS: LinkModel[]) {
+    LINKS.forEach(link => {
+        const tmp: LinkType = {
+            id: link.linkTypeId as LinkTypeIri,
+            label: { values: [{ lang: 'eng', text: link.linkTypeId }] },
+            count: 2,
+        }
+        LINK_TYPES.push(tmp);
+    });
+}
+
+function LEParser(formula: string): DemoDataProvider {
+    let concepts = formula.split(/[ ⊑ | ∃ | ⊓ | ≡ | ¬ | \( | \)]/g);
+    concepts = DeleteEmptyCells(concepts);
+    const CONCEPTS: ClassModel[] = [];
+    let LINKS: LinkModel[] = [];
+    let LINK_TYPES: LinkType[] = [];
+    setConcepts(concepts, CONCEPTS);
+    setLinks(formula, LINKS, concepts);
+    setLinksTypes(LINK_TYPES, LINKS);/* 
+    console.log(CONCEPTS);
+    console.log(LINKS);
+    console.log(LINK_TYPES); */
+    //const truthTable: Array<string> = CreateTruthTable(formula, concepts);
+    //if (truthTable === undefined) { alert('The original formula does not contain logical operations'); }
+    const dataProvider = new DemoDataProvider(CONCEPTS, LINK_TYPES, ELEMENTS, LINKS);
     return dataProvider;
 }
 
