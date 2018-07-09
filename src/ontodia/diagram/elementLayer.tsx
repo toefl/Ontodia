@@ -263,6 +263,13 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
         const label = formatLocalizedLabel(model.iri, model.data.label.values, view.getLanguage());
         const {color, icon} = this.styleFor(model);
         const propsAsList = this.getPropertyTable();
+        const classes = view.model.getClasses();
+        let negation: boolean = false;
+        classes.forEach(element => {
+            if ((element.id) as string === model.iri) {
+                negation = element.negation;
+            }
+        });
 
         return {
             types,
@@ -274,7 +281,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
             isExpanded: model.isExpanded,
             props: model.data.properties,
             propsAsList,
-            negation: model.data.negation,
+            negation,
         };
     }
 

@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Component } from 'react';
-
 import { TemplateProps } from '../props';
 import { getProperty } from './utils';
 
@@ -100,7 +99,7 @@ export class StandardTemplate extends Component<TemplateProps, {}> {
 
     render() {
         const {color, types, isExpanded, negation} = this.props;
-        const label = this.getLabel(); console.log(label); console.log(negation);
+        const label = this.getLabel();
 
         return (
             <div className={CLASS_NAME}>

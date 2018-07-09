@@ -1,6 +1,4 @@
 import * as React from 'react';
-import * as _ from 'lodash';
-
 import { FatClassModel } from '../diagram/elements';
 import { formatLocalizedLabel } from '../diagram/model';
 import { TreeNodes } from './treeNodes';
@@ -19,8 +17,6 @@ export interface State {
     bgColor?: string;
     mapClassIcons?: { [typeId: string]: string };
 }
-
-const CLASS_NAME = 'ontodia-class-tree';
 
 export class Node extends React.Component<Props, State> {
     constructor(props: Props) {

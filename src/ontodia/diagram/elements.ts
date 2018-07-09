@@ -150,16 +150,19 @@ export class FatClassModel {
 
     private _label: ReadonlyArray<LocalizedString>;
     private _count: number | undefined;
+    public negation?: boolean;
 
     constructor(props: {
         id: ClassIri;
         label: ReadonlyArray<LocalizedString>;
         count?: number;
+        negation?: boolean;
     }) {
-        const {id, label, count} = props;
+        const {id, label, count, negation} = props;
         this.id = id;
         this._label = label;
         this._count = count;
+        this.negation = negation;
     }
 
     get base() { return this._base; }
