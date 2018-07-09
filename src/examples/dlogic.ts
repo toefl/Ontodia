@@ -4,10 +4,8 @@ import * as ReactDOM from 'react-dom';
 import { Workspace, WorkspaceProps, DemoDataProvider, LinkModel } from '../index';
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
 import { ClassModel, ClassIri, ElementIri, LinkTypeIri, LinkType } from '../ontodia/data/model';
-import { LinkTemplate } from '../ontodia/customization/props';
 
 const data = require<string>('./resources/logicalExpression.txt');
-// ELEMENTS оставил из demo.ts   Пока не решил что подсунуть вместо этого, а undefined не принимает
 const ELEMENTS = require<any>('./resources/elements.json');
 
 function DeleteEmptyCells(concepts: Array<string>): Array<string> {
@@ -20,7 +18,6 @@ function DeleteEmptyCells(concepts: Array<string>): Array<string> {
     return concepts;
 }
 
-// Пока не уверен в необходимости. Оставил написание функции
 function CreateTruthTable(formula: string, concepts: Array<string>): Array<string> {
     const truthTable = new Array(concepts.length);
     const formulaLetters = formula.split('');
@@ -39,26 +36,31 @@ function CreateTruthTable(formula: string, concepts: Array<string>): Array<strin
 
 function setConcepts(formulaConcepts: string[], CONCEPTS: ClassModel[]) {
     formulaConcepts.forEach(concept => {
+        let negation: boolean = false;
+        if (concept.indexOf('¬') !== -1) {
+            concept = concept.replace('¬', '');
+            negation = true;
+        }
         const tmp: ClassModel = {
-            id: concept as ClassIri,
+            id: ('http://localhost:10444/' + concept) as ClassIri,
             label: { values: [{ lang: 'eng', text: concept }] },
-            count: 0,
             children: [],
+            negation: negation,
         };
         CONCEPTS.push(tmp);
     });
 }
 
-function setLinks(formula: string, LINKS: LinkModel[], concepts: string[]) {
+function setLinks(formula: string, LINKS: LinkModel[], CONCEPTS: ClassModel[]) {
     const formulaLetters = formula.replace(/\s+/g, '').split('');
     let j = 0;
     for (let i = 0; i < formulaLetters.length - 1; i++) {
         if (formulaLetters[i] === '⊑' || formulaLetters[i] === '∃' || formulaLetters[i] === '⊓'
-            || formulaLetters[i] === '≡' || formulaLetters[i] === '¬') {
+            || formulaLetters[i] === '≡') {
             LINKS.push({
+                sourceId: (CONCEPTS[j].id as string) as ElementIri,
                 linkTypeId: formulaLetters[i] as LinkTypeIri,
-                sourceId: concepts[j] as ElementIri,
-                targetId: concepts[j + 1] as ElementIri,
+                targetId: (CONCEPTS[j + 1].id as string) as ElementIri,
             });
             j++;
         }
@@ -77,18 +79,14 @@ function setLinksTypes(LINK_TYPES: LinkType[], LINKS: LinkModel[]) {
 }
 
 function LEParser(formula: string): DemoDataProvider {
-    let concepts = formula.split(/[ ⊑ | ∃ | ⊓ | ≡ | ¬ | \( | \)]/g);
+    let concepts = formula.split(/[ ⊑ | ∃ | ⊓ | ≡ | \( | \)]/g);
     concepts = DeleteEmptyCells(concepts);
     const CONCEPTS: ClassModel[] = [];
     const LINKS: LinkModel[] = [];
     const LINK_TYPES: LinkType[] = [];
     setConcepts(concepts, CONCEPTS);
-    setLinks(formula, LINKS, concepts);
+    setLinks(formula, LINKS, CONCEPTS);
     setLinksTypes(LINK_TYPES, LINKS);
-    // ниже добавил отладочный вывод подготовленных данных
-    console.log(CONCEPTS);
-    console.log(LINK_TYPES);
-    console.log(LINKS);
     const dataProvider = new DemoDataProvider(CONCEPTS, LINK_TYPES, ELEMENTS, LINKS);
     return dataProvider;
 }
@@ -113,15 +111,11 @@ const props: WorkspaceProps & ClassAttributes<Workspace> = {
     },
     viewOptions: {
         onIriClick: iri => window.open(iri),
+        linkTemplateResolvers: [
+            types => { /* console.log(types); */ return undefined; },
+        ],
         templatesResolvers: [
-            types => {
-                // здесь всегда пусто. И не рисуются связи между концептами
-                console.log(types);
-                if (types.indexOf('⊑') !== -1 || types.indexOf('⊓') !== -1) {
-                    // return SOME_TEMPLATE;
-                }
-                return undefined;
-            }
+            types => { /* console.log(types); */ return undefined; },
         ],
     },
 };

@@ -24,6 +24,7 @@ export interface TemplateProps {
     isExpanded?: boolean;
     propsAsList?: PropArray;
     props?: Dictionary<Property>;
+    negation?: boolean;
 }
 
 export type PropArray = Array<{

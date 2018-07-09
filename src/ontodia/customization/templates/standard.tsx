@@ -99,13 +99,14 @@ export class StandardTemplate extends Component<TemplateProps, {}> {
     }
 
     render() {
-        const {color, types, isExpanded} = this.props;
-        const label = this.getLabel();
+        const {color, types, isExpanded, negation} = this.props;
+        const label = this.getLabel(); console.log(label); console.log(negation);
 
         return (
             <div className={CLASS_NAME}>
                 <div className={`${CLASS_NAME}__main`} style={{backgroundColor: color, borderColor: color}}>
-                    <div className={`${CLASS_NAME}__body`} style={{borderLeftColor: color}}>
+                    <div className={`${CLASS_NAME}__body`} style={{backgroundColor: negation ? 'lightgrey' : '',
+                        borderLeftColor: color}}>
                         {this.renderThumbnail()}
                         <div className={`${CLASS_NAME}__body-content`}>
                             <div title={types} className={`${CLASS_NAME}__type`}>

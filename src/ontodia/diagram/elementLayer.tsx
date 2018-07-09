@@ -274,6 +274,7 @@ class OverlayedElement extends React.Component<OverlayedElementProps, OverlayedE
             isExpanded: model.isExpanded,
             props: model.data.properties,
             propsAsList,
+            negation: model.data.negation,
         };
     }
 
