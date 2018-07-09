@@ -4,8 +4,10 @@ import * as ReactDOM from 'react-dom';
 import { Workspace, WorkspaceProps, DemoDataProvider, LinkModel } from '../index';
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
 import { ClassModel, ClassIri, ElementIri, LinkTypeIri, LinkType } from '../ontodia/data/model';
+import { LinkTemplate } from '../ontodia/customization/props';
 
 const data = require<string>('./resources/logicalExpression.txt');
+// ELEMENTS оставил из demo.ts   Пока не решил что подсунуть вместо этого, а undefined не принимает
 const ELEMENTS = require<any>('./resources/elements.json');
 
 function DeleteEmptyCells(concepts: Array<string>): Array<string> {
@@ -18,6 +20,7 @@ function DeleteEmptyCells(concepts: Array<string>): Array<string> {
     return concepts;
 }
 
+// Пока не уверен в необходимости. Оставил написание функции
 function CreateTruthTable(formula: string, concepts: Array<string>): Array<string> {
     const truthTable = new Array(concepts.length);
     const formulaLetters = formula.split('');
@@ -50,8 +53,13 @@ function setLinks(formula: string, LINKS: LinkModel[], concepts: string[]) {
     const formulaLetters = formula.replace(/\s+/g, '').split('');
     let j = 0;
     for (let i = 0; i < formulaLetters.length - 1; i++) {
-        if (formulaLetters[i] === '⊑' || formulaLetters[i] === '∃' || formulaLetters[i] === '⊓' || formulaLetters[i] === '≡' || formulaLetters[i] === '¬') {
-            LINKS.push({ linkTypeId: formulaLetters[i] as LinkTypeIri, sourceId: concepts[j] as ElementIri, targetId: concepts[j + 1] as ElementIri });
+        if (formulaLetters[i] === '⊑' || formulaLetters[i] === '∃' || formulaLetters[i] === '⊓'
+            || formulaLetters[i] === '≡' || formulaLetters[i] === '¬') {
+            LINKS.push({
+                linkTypeId: formulaLetters[i] as LinkTypeIri,
+                sourceId: concepts[j] as ElementIri,
+                targetId: concepts[j + 1] as ElementIri,
+            });
             j++;
         }
     }
@@ -61,9 +69,9 @@ function setLinksTypes(LINK_TYPES: LinkType[], LINKS: LinkModel[]) {
     LINKS.forEach(link => {
         const tmp: LinkType = {
             id: link.linkTypeId as LinkTypeIri,
-            label: { values: [{ lang: 'eng', text: link.linkTypeId }] },
-            count: 2,
-        }
+            label: { values: [{ lang: 'en', text: link.linkTypeId }] },
+            count: 0,
+        };
         LINK_TYPES.push(tmp);
     });
 }
@@ -72,16 +80,15 @@ function LEParser(formula: string): DemoDataProvider {
     let concepts = formula.split(/[ ⊑ | ∃ | ⊓ | ≡ | ¬ | \( | \)]/g);
     concepts = DeleteEmptyCells(concepts);
     const CONCEPTS: ClassModel[] = [];
-    let LINKS: LinkModel[] = [];
-    let LINK_TYPES: LinkType[] = [];
+    const LINKS: LinkModel[] = [];
+    const LINK_TYPES: LinkType[] = [];
     setConcepts(concepts, CONCEPTS);
     setLinks(formula, LINKS, concepts);
-    setLinksTypes(LINK_TYPES, LINKS);/* 
+    setLinksTypes(LINK_TYPES, LINKS);
+    // ниже добавил отладочный вывод подготовленных данных
     console.log(CONCEPTS);
+    console.log(LINK_TYPES);
     console.log(LINKS);
-    console.log(LINK_TYPES); */
-    //const truthTable: Array<string> = CreateTruthTable(formula, concepts);
-    //if (truthTable === undefined) { alert('The original formula does not contain logical operations'); }
     const dataProvider = new DemoDataProvider(CONCEPTS, LINK_TYPES, ELEMENTS, LINKS);
     return dataProvider;
 }
@@ -105,7 +112,17 @@ const props: WorkspaceProps & ClassAttributes<Workspace> = {
         window.location.reload();
     },
     viewOptions: {
-        onIriClick: iri => console.log(iri),
+        onIriClick: iri => window.open(iri),
+        templatesResolvers: [
+            types => {
+                // здесь всегда пусто. И не рисуются связи между концептами
+                console.log(types);
+                if (types.indexOf('⊑') !== -1 || types.indexOf('⊓') !== -1) {
+                    // return SOME_TEMPLATE;
+                }
+                return undefined;
+            }
+        ],
     },
 };
 
