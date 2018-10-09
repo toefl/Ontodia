@@ -1,48 +1,50 @@
 import * as React from 'react';
 import * as _ from 'lodash';
 
-import { Dictionary, LocalizedString } from '../data/model';
 import { FatClassModel } from '../diagram/elements';
 import { DiagramView } from '../diagram/view';
 import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
 import { TreeNodes } from './treeNodes';
+import { Debouncer } from '../viewUtils/async';
+import { ElementTypeIri } from '../data/model';
+import { EditorController } from '../editor/editorController';
 
-export interface ClassTreeProps {
+export interface Props {
     view: DiagramView;
-    onClassSelected: (classId: string) => void;
+    editor: EditorController;
+    onClassSelected: (classId: ElementTypeIri) => void;
 }
 
-interface ClassTreeState {
-    roots?: ReadonlyArray<FatClassModel> | undefined;
-    resultIds?: Array<string> | undefined;
-    lang?: Readonly<string> | undefined;
-    searchString?: string | undefined;
+export interface State {
+    roots?: ReadonlyArray<FatClassModel>;
+    classesToDisplay?: Array<FatClassModel>;
+    lang?: Readonly<string>;
+    searchString?: string;
 }
 
 const CLASS_NAME = 'ontodia-class-tree';
 
-export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
+export class ClassTree extends React.Component<Props, State> {
     private readonly listener = new EventObserver();
+    private readonly searchDebouncer = new Debouncer(400 /* ms */);
 
-    constructor(props: ClassTreeProps) {
+    constructor(props: Props) {
         super(props);
-        this.state = ({ roots: undefined });
+        this.state = ({});
     }
 
     componentDidMount() {
-        const { view } = this.props;
-        this.listener.listen(view.events, 'changeLanguage', () => {
-            this.refreshClassTree();
-        });
-
-        this.listener.listen(view.model.events, 'loadingSuccess', () => {
+        const {view, editor} = this.props;
+        this.listener.listen(view.events, 'changeLanguage', () => this.refreshClassTree());
+        this.listener.listen(editor.model.events, 'changeClassTree', () => {
             this.refreshClassTree();
         });
     }
 
     componentWillUnmount() {
         this.listener.stopListening();
+        this.searchDebouncer.dispose();
     }
 
     render() {
@@ -61,7 +63,7 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
                 <div className={`${CLASS_NAME}__rest`}>
                     <div className={`${CLASS_NAME}__tree`}>
                         <TreeNodes roots={this.state.roots} searchString={this.state.searchString}
-                            resultIds={this.state.resultIds} lang={this.state.lang}
+                            classesToDisplay={this.state.classesToDisplay} lang={this.props.view.getLanguage()}
                             onClassSelected={this.props.onClassSelected} />
                     </div>
                 </div>
@@ -69,69 +71,91 @@ export class ClassTree extends React.Component<ClassTreeProps, ClassTreeState> {
         );
     }
     private onSearchKeyup = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        const searchString = e.currentTarget.value;
-        this.search(searchString);
+        const keyValue = e.currentTarget.value;
+        this.searchDebouncer.call(() => this.search(keyValue));
     }
-    private search = (searchString: string): void => {
+    private search = (searchString: string) => {
         if (searchString.trim().length === 0) {
-            if (this.state.resultIds) {
-                this.setState({ resultIds: undefined });
+            if (this.state.classesToDisplay) {
+                this.setState({ classesToDisplay: undefined, searchString: undefined });
             }
             return;
         }
-        let roots: Array<FatClassModel> = this.props.view.model.getClasses().filter(model => !model.base);
-        let result: Array<FatClassModel> = [];
-        for (let i = 0; i < roots.length; i++) {
-            this.deepSearch(searchString, roots[i], result);
+        if (searchString === this.state.searchString) {
+            return;
         }
-        this.setState({ resultIds: this.printNodesIds(result), searchString: searchString });
+        const searchResult: Array<FatClassModel> = [];
+        this.state.roots.forEach(node => {
+            this.deepSearch(searchString, node, searchResult);
+        });
+        this.setState({ classesToDisplay: this.getClassesToDisplay(searchResult), searchString: searchString });
     }
-    private deepSearch = (searchString: string, node: FatClassModel, result: Array<FatClassModel>): void => {
-        let classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
+    private deepSearch = (searchString: string, node: FatClassModel, searchResult: Array<FatClassModel>): void => {
+        const classLabel = formatLocalizedLabel(node.id, node.label, this.state.lang);
         if (classLabel.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-            result.push(node);
+            searchResult.push(node);
         }
-        if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-            result.push(node);
+        if (Boolean(node.count)) {
+            if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
+                searchResult.push(node);
+            }
         }
-        for (let i = 0; i < node.derived.length; i++) {
-            this.deepSearch(searchString, node.derived[i], result);
+        for (const derived of node.derived) {
+            this.deepSearch(searchString, derived, searchResult);
         }
     }
-    private printNodesIds(result: FatClassModel[]): Array<string> {
-        let printNodesIds: Array<string> = result.map(e => e.id);
-        for (let i = 0; i < result.length; i++) {
-            let tmp = result[i];
+    private getClassesToDisplay(searchResult: FatClassModel[]): Array<FatClassModel> {
+        let classesToDisplay: Array<FatClassModel> = searchResult;
+        for (let i = 0; i < searchResult.length; i++) {
+            let tmp = searchResult[i];
             while (tmp.base !== undefined) {
-                printNodesIds.push(tmp.base.id);
+                classesToDisplay.push(tmp.base);
                 tmp = tmp.base;
             }
         }
-        printNodesIds = this.getUnique(printNodesIds);
-        return printNodesIds;
+        classesToDisplay = this.getUnique(classesToDisplay);
+        return classesToDisplay;
     }
-    private getUnique(nodesId: Array<string>) {
-        let unique = [];
-        for (let i = 0; i < nodesId.length; i++) {
-            if (unique.indexOf(nodesId[i]) === -1) {
-                unique.push(nodesId[i]);
+    private getUnique(nodes: Array<FatClassModel>) {
+        const uniqueClasses = [];
+        for (const node of nodes) {
+            if (uniqueClasses.indexOf(node) === -1) {
+                uniqueClasses.push(node);
             }
         }
-        return unique;
-    };
+        return uniqueClasses;
+    }
+    private findBaseClasses(root: FatClassModel, baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>) {
+        while (root.base !== undefined) {
+            if (notBaseClasses.indexOf(root) === -1) {
+                notBaseClasses.push(root);
+            }
+            root = root.base;
+        }
+        if (baseClasses.indexOf(root) === -1) {
+            baseClasses.push(root);
+        }
+    }
+    private deleteFakeBaseClasses(baseClasses: Array<FatClassModel>, notBaseClasses: Array<FatClassModel>): void {
+        for (let i = 0; i < baseClasses.length; i++) {
+            for (let j = 0; j < notBaseClasses.length; j++) {
+                if ((baseClasses[i].id === notBaseClasses[j].id) && baseClasses[i].derived.length === 0) {
+                    baseClasses.splice(i, 1);
+                    i = i - 1;
+                }
+            }
+        }
+    }
     private refreshClassTree(): void {
         const { view } = this.props;
-        const roots = view.model.getClasses().filter(model => !model.base);
-        roots.sort((node1, node2) => {
-            let classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.state.lang);
-            let classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.state.lang);
-            if (classLabel1 < classLabel2) {
-                return -1;
-            } else {
-                return 1;
-            }
+        const classes = view.model.getClasses;
+        const baseClasses: Array<FatClassModel> = [];
+        const notBaseClasses: Array<FatClassModel> = [];
+        classes.forEach(elem => {
+            this.findBaseClasses(elem, baseClasses, notBaseClasses);
         });
-        this.setState({ roots: roots, lang: view.getLanguage() });
+        this.deleteFakeBaseClasses(baseClasses, notBaseClasses);
+        this.setState({ roots: baseClasses, lang: view.getLanguage() });
     }
 }
 export default ClassTree;

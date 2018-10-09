@@ -1,8 +1,14 @@
-import { ClassModel, ElementModel, LinkModel, LocalizedString, Property } from '../data/model';
+import {
+    ClassModel, ElementModel, LinkModel, LocalizedString, Property,
+    ElementIri, ElementTypeIri, LinkTypeIri, PropertyTypeIri,
+} from '../data/model';
+import { GenerateID } from '../data/schema';
 
 import { EventSource, Events, PropertyChange } from '../viewUtils/events';
 
-import { Vector, Size } from './geometry';
+import { Vector, Size, isPolylineEqual } from './geometry';
+
+export type Cell = Element | Link | LinkVertex;
 
 export interface ElementEvents {
     changeData: PropertyChange<Element, ElementModel>;
@@ -11,6 +17,7 @@ export interface ElementEvents {
     changeExpanded: PropertyChange<Element, boolean>;
     changeGroup: PropertyChange<Element, string>;
     requestedFocus: { source: Element };
+    requestedGroupContent: { source: Element };
     requestedAddToFilter: {
         source: Element;
         linkType?: FatLinkType;
@@ -31,7 +38,8 @@ export class Element {
     private _position: Vector;
     private _size: Size;
     private _expanded: boolean;
-    private _group: string;
+    private _group: string | undefined;
+    private _temporary: boolean;
 
     constructor(props: {
         id: string;
@@ -40,6 +48,7 @@ export class Element {
         size?: Size;
         expanded?: boolean;
         group?: string;
+        temporary?: boolean;
     }) {
         const {
             id,
@@ -48,6 +57,7 @@ export class Element {
             size = {width: 0, height: 0},
             expanded = false,
             group,
+            temporary = false,
         } = props;
 
         this.id = id;
@@ -56,6 +66,7 @@ export class Element {
         this._size = size;
         this._expanded = expanded;
         this._group = group;
+        this._temporary = temporary;
     }
 
     get iri() { return this._data.id; }
@@ -100,21 +111,27 @@ export class Element {
         this.source.trigger('changeExpanded', {source: this, previous});
     }
 
-    get group(): string { return this._group; }
-    setGroup(value: string) {
+    get group(): string | undefined { return this._group; }
+    setGroup(value: string | undefined) {
         const previous = this._group;
         if (previous === value) { return; }
         this._group = value;
         this.source.trigger('changeGroup', {source: this, previous});
     }
 
+    get temporary(): boolean { return this._temporary; }
+
     focus() {
         this.source.trigger('requestedFocus', {source: this});
     }
 
+    requestGroupContent() {
+        this.source.trigger('requestedGroupContent', {source: this});
+    }
+
     addToFilter(linkType?: FatLinkType, direction?: 'in' | 'out') {
         this.source.trigger('requestedAddToFilter', {
-            source: this, linkType, direction
+            source: this, linkType, direction,
         });
     }
 
@@ -138,7 +155,7 @@ export class FatClassModel {
     private readonly source = new EventSource<FatClassModelEvents>();
     readonly events: Events<FatClassModelEvents> = this.source;
 
-    readonly id: string;
+    readonly id: ElementTypeIri;
 
     private _base: FatClassModel | undefined;
     private _derived: FatClassModel[] = [];
@@ -147,11 +164,11 @@ export class FatClassModel {
     private _count: number | undefined;
 
     constructor(props: {
-        id: string;
-        label: ReadonlyArray<LocalizedString>;
+        id: ElementTypeIri;
+        label?: ReadonlyArray<LocalizedString>;
         count?: number;
     }) {
-        const {id, label, count} = props;
+        const {id, label = [], count} = props;
         this.id = id;
         this._label = label;
         this._count = count;
@@ -207,15 +224,15 @@ export class RichProperty {
     private readonly source = new EventSource<RichPropertyEvents>();
     readonly events: Events<RichPropertyEvents> = this.source;
 
-    readonly id: string;
+    readonly id: PropertyTypeIri;
 
     private _label: ReadonlyArray<LocalizedString>;
 
     constructor(props: {
-        id: string;
-        label: ReadonlyArray<LocalizedString>;
+        id: PropertyTypeIri;
+        label?: ReadonlyArray<LocalizedString>;
     }) {
-        const {id, label} = props;
+        const {id, label = []} = props;
         this.id = id;
         this._label = label;
     }
@@ -235,60 +252,47 @@ export interface LinkEvents {
     changeVertices: PropertyChange<Link, ReadonlyArray<Vector>>;
 }
 
-/**
- * Properties:
- *     typeId: string
- *     typeIndex: number
- *     source: { id: string }
- *     target: { id: string }
- *     layoutOnly: boolean -- link exists only in layout (instead of underlying data)
- *
- * Events:
- *     state:loaded
- *     updateRouting
- */
 export class Link {
     private readonly source = new EventSource<LinkEvents>();
     readonly events: Events<LinkEvents> = this.source;
 
     readonly id: string;
 
-    private _typeIndex: number;
-
-    private _typeId: string;
+    private _typeId: LinkTypeIri;
     private _sourceId: string;
     private _targetId: string;
 
-    private _data: LinkModel;
+    private _data: LinkModel | undefined;
     private _layoutOnly: boolean;
     private _vertices: ReadonlyArray<Vector>;
 
     constructor(props: {
-        id: string;
-        data: LinkModel;
+        id?: string;
+        typeId: LinkTypeIri;
+        sourceId: string;
+        targetId: string;
+        data?: LinkModel;
         vertices?: ReadonlyArray<Vector>;
     }) {
-        const {id, data, vertices = []} = props;
+        const {id = GenerateID.forLink(), typeId, sourceId, targetId, data, vertices = []} = props;
         this.id = id;
+        this._typeId = typeId;
+        this._sourceId = sourceId;
+        this._targetId = targetId;
         this._data = data;
-        this._typeId = data.linkTypeId;
-        this._sourceId = data.sourceId;
-        this._targetId = data.targetId;
         this._vertices = vertices;
     }
 
-    get typeIndex(): number { return this._typeIndex; }
-    set typeIndex(value: number) { this._typeIndex = value; }
-
-    get typeId(): string { return this._typeId; }
+    get typeId() { return this._typeId; }
     get sourceId(): string { return this._sourceId; }
     get targetId(): string { return this._targetId; }
 
-    get data(): LinkModel { return this._data; }
-    setData(value: LinkModel) {
+    get data() { return this._data; }
+    setData(value: LinkModel | undefined) {
         const previous = this._data;
         if (previous === value) { return; }
         this._data = value;
+        this._typeId = value.linkTypeId;
         this.source.trigger('changeData', {source: this, previous});
     }
 
@@ -303,23 +307,10 @@ export class Link {
     get vertices(): ReadonlyArray<Vector> { return this._vertices; }
     setVertices(value: ReadonlyArray<Vector>) {
         const previous = this._vertices;
-        if (isVerticesEqual(this._vertices, value)) { return; }
+        if (isPolylineEqual(this._vertices, value)) { return; }
         this._vertices = value;
         this.source.trigger('changeVertices', {source: this, previous});
     }
-}
-
-function isVerticesEqual(left: ReadonlyArray<Vector>, right: ReadonlyArray<Vector>) {
-    if (left === right) { return true; }
-    if (left.length !== right.length) { return false; }
-    for (let i = 0; i < left.length; i++) {
-        const a = left[i];
-        const b = right[i];
-        if (!(a.x === b.x && a.y === b.y)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 export function linkMarkerKey(linkTypeIndex: number, startMarker: boolean) {
@@ -346,7 +337,7 @@ export class FatLinkType {
     private readonly source = new EventSource<FatLinkTypeEvents>();
     readonly events: Events<FatLinkTypeEvents> = this.source;
 
-    readonly id: string;
+    readonly id: LinkTypeIri;
 
     private _index: number | undefined;
 
@@ -357,11 +348,11 @@ export class FatLinkType {
     private _showLabel = true;
 
     constructor(props: {
-        id: string;
+        id: LinkTypeIri;
         index?: number;
-        label: ReadonlyArray<LocalizedString>;
+        label?: ReadonlyArray<LocalizedString>;
     }) {
-        const {id, index, label} = props;
+        const {id, index, label = []} = props;
         this.id = id;
         this._index = index;
         this._label = label;
@@ -407,5 +398,30 @@ export class FatLinkType {
         if (previous === value) { return; }
         this._isNew = value;
         this.source.trigger('changeIsNew', {source: this, previous});
+    }
+}
+
+export class LinkVertex {
+    constructor(
+        readonly link: Link,
+        readonly vertexIndex: number,
+    ) {}
+
+    createAt(location: Vector) {
+        const vertices = [...this.link.vertices];
+        vertices.splice(this.vertexIndex, 0, location);
+        this.link.setVertices(vertices);
+    }
+
+    moveTo(location: Vector) {
+        const vertices = [...this.link.vertices];
+        vertices.splice(this.vertexIndex, 1, location);
+        this.link.setVertices(vertices);
+    }
+
+    remove() {
+        const vertices = [...this.link.vertices];
+        const [location] = vertices.splice(this.vertexIndex, 1);
+        this.link.setVertices(vertices);
     }
 }

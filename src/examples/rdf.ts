@@ -1,15 +1,16 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
 
-import { Workspace, WorkspaceProps, RDFDataProvider } from '../index';
+import { Workspace, WorkspaceProps, RDFDataProvider, GroupTemplate } from '../index';
 
+import { ExampleMetadataApi } from './resources/exampleMetadataApi';
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
 
 const N3Parser: any = require('rdf-parser-n3');
 const RdfXmlParser: any = require('rdf-parser-rdfxml');
 const JsonLdParser: any = require('rdf-parser-jsonld');
 
-const data = require<string>('raw-loader!./resources/testData.ttl');
+const data = require<string>('./resources/testData.ttl');
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
@@ -19,7 +20,7 @@ function onWorkspaceMounted(workspace: Workspace) {
             {
                 content: data,
                 type: 'text/turtle',
-                fileName: 'testData.ttl'
+                fileName: 'testData.ttl',
             },
         ],
         acceptBlankNodes: false,
@@ -31,9 +32,9 @@ function onWorkspaceMounted(workspace: Workspace) {
         },
     });
 
-    const layoutData = tryLoadLayoutFromLocalStorage();
+    const diagram = tryLoadLayoutFromLocalStorage();
     workspace.getModel().importLayout({
-        layoutData,
+        diagram,
         validateLinks: true,
         dataProvider,
     });
@@ -42,12 +43,30 @@ function onWorkspaceMounted(workspace: Workspace) {
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
     ref: onWorkspaceMounted,
     onSaveDiagram: workspace => {
-        const {layoutData} = workspace.getModel().exportLayout();
-        window.location.hash = saveLayoutToLocalStorage(layoutData);
+        const diagram = workspace.getModel().exportLayout();
+        window.location.hash = saveLayoutToLocalStorage(diagram);
         window.location.reload();
     },
+    onPersistChanges: workspace => {
+        const state = workspace.getEditor().authoringState;
+        // tslint:disable-next-line:no-console
+        console.log('Authoring state:', state);
+    },
+    metadataApi: new ExampleMetadataApi(),
     viewOptions: {
         onIriClick: iri => window.open(iri),
+        groupBy: [
+            {linkType: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', linkDirection: 'in'},
+        ],
+        templatesResolvers: [
+            types => {
+                if (types.length === 0) {
+                    // use group template only for classes
+                    return GroupTemplate;
+                }
+                return undefined;
+            }
+        ],
     }
 };
 

@@ -1,6 +1,9 @@
 import * as N3 from 'n3';
 import { DataProvider, LinkElementsParams, FilterParams } from '../provider';
-import { Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel } from '../model';
+import {
+    Dictionary, ClassModel, LinkType, ElementModel, LinkModel, LinkCount, PropertyModel,
+    ElementIri, ElementTypeIri, LinkTypeIri, PropertyTypeIri,
+} from '../model';
 import {
     triplesToElementBinding,
     getClassTree,
@@ -12,7 +15,6 @@ import {
     getLinksTypeIds,
     getFilteredData,
     getEnrichedElementsInfo,
-    getLinkTypesInfo,
     getLinksTypesOf,
     getLinkStatistics,
 } from './responseHandler';
@@ -27,10 +29,10 @@ import { parseTurtleText } from './turtle';
 export enum SparqlQueryMethod { GET = 1, POST }
 
 export type QueryFunction = (params: {
-    url: string,
-    body?: string,
-    headers: { [header: string]: string },
-    method: string,
+    url: string;
+    body?: string;
+    headers: { [header: string]: string };
+    method: string;
 }) => Promise<Response>;
 
 /**
@@ -92,7 +94,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<ClassBinding>(query).then(getClassTree);
     }
 
-    propertyInfo(params: { propertyIds: string[] }): Promise<Dictionary<PropertyModel>> {
+    propertyInfo(params: { propertyIds: PropertyTypeIri[] }): Promise<Dictionary<PropertyModel>> {
         const ids = params.propertyIds.map(escapeIri).map(id => ` ( ${id} )`).join(' ');
         const query = this.settings.defaultPrefix + `
             SELECT ?prop ?label
@@ -104,7 +106,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<PropertyBinding>(query).then(getPropertyInfo);
     }
 
-    classInfo(params: { classIds: string[] }): Promise<ClassModel[]> {
+    classInfo(params: { classIds: ElementTypeIri[] }): Promise<ClassModel[]> {
         const ids = params.classIds.map(escapeIri).map(id => ` ( ${id} )`).join(' ');
         const query = this.settings.defaultPrefix + `
             SELECT ?class ?label ?instcount
@@ -117,7 +119,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<ClassBinding>(query).then(getClassInfo);
     }
 
-    linkTypesInfo(params: {linkTypeIds: string[]}): Promise<LinkType[]> {
+    linkTypesInfo(params: { linkTypeIds: LinkTypeIri[] }): Promise<LinkType[]> {
         const ids = params.linkTypeIds.map(escapeIri).map(id => ` ( ${id} )`).join(' ');
         const query = this.settings.defaultPrefix + `
             SELECT ?link ?label ?instcount
@@ -127,12 +129,12 @@ export class SparqlDataProvider implements DataProvider {
                 BIND("" as ?instcount)
             }
         `;
-        return this.executeSparqlQuery<LinkTypeBinding>(query).then(getLinkTypesInfo);
+        return this.executeSparqlQuery<LinkTypeBinding>(query).then(getLinkTypes);
     }
 
     linkTypes(): Promise<LinkType[]> {
         const query = this.settings.defaultPrefix + `
-            SELECT ?link ?instcount ?label
+            SELECT DISTINCT ?link ?instcount ?label
             WHERE {
                   ${this.settings.linkTypesPattern}
                   OPTIONAL { ?link ${this.settings.schemaLabelProperty} ?label. }
@@ -141,7 +143,7 @@ export class SparqlDataProvider implements DataProvider {
         return this.executeSparqlQuery<LinkTypeBinding>(query).then(getLinkTypes);
     }
 
-    elementInfo(params: { elementIds: string[]; }): Promise<Dictionary<ElementModel>> {
+    elementInfo(params: { elementIds: ElementIri[] }): Promise<Dictionary<ElementModel>> {
         const blankIds: string[] = [];
 
         const elementIds = params.elementIds.filter(id => !BlankNodes.isEncodedBlank(id));
@@ -153,8 +155,9 @@ export class SparqlDataProvider implements DataProvider {
         }
 
         const ids = elementIds.map(escapeIri).map(id => ` (${id})`).join(' ');
-        const {defaultPrefix, dataLabelProperty, elementInfoQuery} = this.settings;
-        const query = defaultPrefix + resolveTemplate(elementInfoQuery, {ids, dataLabelProperty});
+        const {defaultPrefix, dataLabelProperty, elementInfoQuery, propertyConfigurations} = this.settings;
+        const query = defaultPrefix + resolveTemplate(
+            elementInfoQuery, {ids, dataLabelProperty, propertyConfigurations: this.formatPropertyInfo()});
 
         return this.executeSparqlConstruct(query)
             .then(triplesToElementBinding)
@@ -183,13 +186,14 @@ export class SparqlDataProvider implements DataProvider {
             SELECT ?inst ?linkType ?image
             WHERE {{
                 VALUES (?inst) {${ids}}
-                VALUES (?linkType) {${typesString}} 
+                VALUES (?linkType) {${typesString}}
                 ${this.settings.imageQueryPattern}
             }}
         `;
         return this.executeSparqlQuery<ElementImageBinding>(query)
             .then(imageResponse => getEnrichedElementsInfo(imageResponse, elementsInfo))
             .catch(err => {
+                // tslint:disable-next-line:no-console
                 console.error(err);
                 return elementsInfo;
             });
@@ -209,8 +213,8 @@ export class SparqlDataProvider implements DataProvider {
     }
 
     linksInfo(params: {
-        elementIds: string[];
-        linkTypeIds: string[];
+        elementIds: ElementIri[];
+        linkTypeIds: LinkTypeIri[];
     }): Promise<LinkModel[]> {
         const elementIds = params.elementIds.filter(id => !BlankNodes.isEncodedBlank(id));
 
@@ -232,7 +236,7 @@ export class SparqlDataProvider implements DataProvider {
             .then(getLinksInfo);
     }
 
-    linkTypesOf(params: { elementId: string; }): Promise<LinkCount[]> {
+    linkTypesOf(params: { elementId: ElementIri }): Promise<LinkCount[]> {
         if (this.options.acceptBlankNodes && BlankNodes.isEncodedBlank(params.elementId)) {
             return Promise.resolve(getLinksTypesOf(BlankNodes.linkTypesOf(params)));
         }
@@ -259,7 +263,7 @@ export class SparqlDataProvider implements DataProvider {
                         elementIri,
                         linkConfigurations: this.formatLinkTypesStatistics(params.elementId, id),
                         navigateElementFilterOut,
-                        navigateElementFilterIn
+                        navigateElementFilterIn,
                     });
                     requests.push(
                         this.executeSparqlQuery<LinkCountBinding>(q).then(getLinkStatistics)
@@ -267,7 +271,7 @@ export class SparqlDataProvider implements DataProvider {
                 }
                 return Promise.all(requests);
             });
-    };
+    }
 
     linkElements(params: LinkElementsParams): Promise<Dictionary<ElementModel>> {
         // for sparql we have rich filtering features and we just reuse filter.
@@ -308,17 +312,17 @@ export class SparqlDataProvider implements DataProvider {
             elementTypePart = resolveTemplate(this.settings.filterTypePattern, {elementTypeIri});
         }
 
+        const {defaultPrefix, fullTextSearch, dataLabelProperty} = this.settings;
+
         let textSearchPart = '';
         if (params.text) {
-            const {fullTextSearch, dataLabelProperty} = this.settings;
             textSearchPart = resolveTemplate(fullTextSearch.queryPattern, {text: params.text, dataLabelProperty});
         }
 
-        const {defaultPrefix, fullTextSearch, dataLabelProperty} = this.settings;
         const blankNodes = this.options.acceptBlankNodes;
         const query = `${defaultPrefix}
             ${fullTextSearch.prefix}
-            
+
         SELECT ?inst ?class ?label ?blankType ${blankNodes ? BlankNodes.BLANK_NODE_QUERY_PARAMETERS : ''}
         WHERE {
             {
@@ -345,7 +349,7 @@ export class SparqlDataProvider implements DataProvider {
                 }
                 return result;
             }).then(getFilteredData);
-    };
+    }
 
     executeSparqlQuery<Binding>(query: string) {
         const method = this.options.queryMethod ? this.options.queryMethod : SparqlQueryMethod.GET;
@@ -372,7 +376,7 @@ export class SparqlDataProvider implements DataProvider {
         return executeSparqlConstruct(this.options.endpointUrl, query, method, this.options.queryFunction);
     }
 
-    protected createRefQueryPart(params: { elementId: string; linkId?: string; direction?: 'in' | 'out'}) {
+    protected createRefQueryPart(params: { elementId: ElementIri; linkId?: LinkTypeIri; direction?: 'in' | 'out' }) {
         const {elementId, linkId, direction} = params;
         const refElementIRI = escapeIri(params.elementId);
 
@@ -393,6 +397,9 @@ export class SparqlDataProvider implements DataProvider {
             if (params.direction !== 'out') {
                 part += `{ ?inst ${linkPattern} ${refElementIRI} . ${blankFilter} }`;
             }
+            if (this.settings.filterRefElementLinkPattern.length && !linkId) {
+                part += `\n${this.settings.filterRefElementLinkPattern}`;
+            }
             return part;
         } else {
             // use link configuration in filter. If you need more or somehow mix it with rdf predicates, override
@@ -403,111 +410,114 @@ export class SparqlDataProvider implements DataProvider {
 
     }
 
-    formatLinkTypesOf(elementIri: string): string {
+    formatLinkTypesOf(elementIri: ElementIri): string {
         const elementIriConst = escapeIri(elementIri);
         return this.settings.linkConfigurations.map(linkConfig => {
-            let links: string[] = [];
-            links.push(`{ ${this.formatLinkPath(linkConfig.path, elementIriConst, '?outObject')} 
+            const links: string[] = [];
+            links.push(`{ ${this.formatLinkPath(linkConfig.path, elementIriConst, '?outObject')}
                 BIND(<${linkConfig.id}> as ?link )
             }`);
-            links.push(`{ ${this.formatLinkPath(linkConfig.path, '?inObject', elementIriConst)} 
+            links.push(`{ ${this.formatLinkPath(linkConfig.path, '?inObject', elementIriConst)}
                 BIND(<${linkConfig.id}> as ?link )
             }`);
             if (linkConfig.inverseId) {
-                links.push(`{ ${this.formatLinkPath(linkConfig.path, elementIriConst, '?inObject')} 
+                links.push(`{ ${this.formatLinkPath(linkConfig.path, elementIriConst, '?inObject')}
                 BIND(<${linkConfig.inverseId}> as ?link )
             }`);
-                links.push(`{ ${this.formatLinkPath(linkConfig.path, '?outObject', elementIriConst)} 
+                links.push(`{ ${this.formatLinkPath(linkConfig.path, '?outObject', elementIriConst)}
                 BIND(<${linkConfig.inverseId}> as ?link )
             }`);
             }
             return links;
         }).map(links => links.join(`
-            UNION 
+            UNION
             `)).join(`
-            UNION 
+            UNION
             `);
     }
 
-    formatLinkTypesStatistics(elementIri: string, linkIri: string): string {
+    formatLinkTypesStatistics(elementIri: ElementIri, linkIri: LinkTypeIri): string {
         const elementIriConst = escapeIri(elementIri);
-        const linkConfig = this.settings.linkConfigurations.find(link => link.id === linkIri);
-        const linkConfigInverse = this.settings.linkConfigurations.find(link => link.inverseId === linkIri);
 
-        let links: string[] = [];
-        if (linkConfig) {
-            links.push(`{ ${this.formatLinkPath(linkConfig.path, elementIriConst, '?outObject')} 
-                BIND(<${linkIri}> as ?link )
+        const links: string[] = [];
+        this.settings.linkConfigurations.filter(link => link.id === linkIri).forEach(link => {
+            links.push(`{ ${this.formatLinkPath(link.path, elementIriConst, '?outObject')}
+                BIND(<${linkIri}> as ?link)
             }`);
-            links.push(`{ ${this.formatLinkPath(linkConfig.path, '?inObject', elementIriConst)} 
-                BIND(<${linkIri}> as ?link )
+            links.push(`{ ${this.formatLinkPath(link.path, '?inObject', elementIriConst)}
+                BIND(<${linkIri}> as ?link)
             }`);
-        }
-        if (linkConfigInverse) {
-            links.push(`{ ${this.formatLinkPath(linkConfigInverse.path, elementIriConst, '?inObject')} 
-                BIND(<${linkIri}> as ?link )
+        });
+        this.settings.linkConfigurations.filter(link => link.inverseId === linkIri).forEach(link => {
+            links.push(`{ ${this.formatLinkPath(link.path, elementIriConst, '?inObject')}
+                BIND(<${linkIri}> as ?link)
             }`);
-            links.push(`{ ${this.formatLinkPath(linkConfigInverse.path, '?outObject', elementIriConst)} 
-                BIND(<${linkIri}> as ?link )
+            links.push(`{ ${this.formatLinkPath(link.path, '?outObject', elementIriConst)}
+                BIND(<${linkIri}> as ?link)
             }`);
-        }
-        return links.join(`
-            UNION 
-            `);
+        });
+        return links.join(` \n UNION \n `);
     }
 
-    formatLinkElements(refElementIri: string, linkIri?: string, direction?: 'in' | 'out'): string {
+    formatLinkElements(refElementIri: ElementIri, linkIri?: LinkTypeIri, direction?: 'in' | 'out'): string {
+        const {linkConfigurations} = this.settings;
         const elementIriConst = `<${refElementIri}>`;
         let parts: string[] = [];
         if (!linkIri) {
             if (!direction || direction === 'out') {
-                parts = parts.concat( this.settings.linkConfigurations.map((linkConfig) =>
-                    `{ ${this.formatLinkPath(linkConfig.path, elementIriConst, '?inst')} }`));
+                parts = parts.concat(linkConfigurations.map(link =>
+                    `{ ${this.formatLinkPath(link.path, elementIriConst, '?inst')} }`)
+                );
             }
             if (!direction || direction === 'in') {
-                parts = parts.concat( this.settings.linkConfigurations.map((linkConfig) =>
-                    `{ ${this.formatLinkPath(linkConfig.path, '?inst', elementIriConst)} }`));
+                parts = parts.concat(linkConfigurations.map(link =>
+                    `{ ${this.formatLinkPath(link.path, '?inst', elementIriConst)} }`)
+                );
             }
-            return parts.join(`
-            UNION 
-            `);
         } else {
-            const linkOut = this.settings.linkConfigurations.find((linkConfig) => linkConfig.id === linkIri);
-            const linkIn = this.settings.linkConfigurations.find((linkConfig) => linkConfig.inverseId === linkIri);
+            const outLinks = linkConfigurations.filter(link => link.id === linkIri);
+            const inLinks = linkConfigurations.filter(link => link.inverseId === linkIri);
             if (!direction || direction === 'out') {
-                if (linkOut) {
-                    parts.push(`{ ${this.formatLinkPath(linkOut.path, elementIriConst, '?inst')} }`);
-                }
-                if (linkIn) {
-                    parts.push(`{ ${this.formatLinkPath(linkIn.path, '?inst', elementIriConst)} }`);
-                }
+                parts = parts.concat(
+                    outLinks.map(link => `{ ${this.formatLinkPath(link.path, elementIriConst, '?inst')} }`),
+                    inLinks.map(link => `{ ${this.formatLinkPath(link.path, '?inst', elementIriConst)} }`),
+                );
             }
             if (!direction || direction === 'in') {
-                if (linkIn) {
-                    parts.push(`{ ${this.formatLinkPath(linkIn.path, elementIriConst, '?inst')} }`);
-                }
-                if (linkOut) {
-                    parts.push(`{ ${this.formatLinkPath(linkOut.path, '?inst', elementIriConst)} }`);
-                }
+                parts = parts.concat(
+                    inLinks.map(link => `{ ${this.formatLinkPath(link.path, elementIriConst, '?inst')} }`),
+                    outLinks.map(link => `{ ${this.formatLinkPath(link.path, '?inst', elementIriConst)} }`),
+                );
             }
-            return parts.join(`
-            UNION 
-            `);
         }
+        return parts.join(` \n UNION \n `);
     }
 
     formatLinkLinks(): string {
         return this.settings.linkConfigurations.map(linkConfig =>
-            `{ ${this.formatLinkPath(linkConfig.path, '?source', '?target')} 
+            `{ ${this.formatLinkPath(linkConfig.path, '?source', '?target')}
                 BIND(<${linkConfig.id}> as ?type )
                ${linkConfig.properties ? this.formatLinkPath(linkConfig.properties, '?source', '?target') : ''}
             }`).join(`
-            UNION 
+            UNION
             `);
     }
 
     formatLinkPath(path: string, source: string, target: string): string {
         return path.replace(/\$source/g, source).replace(/\$target/g, target);
+    }
+
+    formatPropertyInfo() {
+        return this.settings.propertyConfigurations.map( propConfig =>
+            `{ ${this.formatPropertyPath(propConfig.path, '?inst', '?propValue')}
+                BIND(<${propConfig.id}> as ?propType )
+            }`).join(`
+            UNION
+            `);
+    }
+
+    formatPropertyPath(path: string, subject: string, value: string): string {
+        return path.replace(/\$subject/g, subject).replace(/\$value/g, value);
     }
 }
 
@@ -604,10 +614,10 @@ function appendQueryParams(endpoint: string, queryParams: { [key: string]: strin
 }
 
 function queryInternal(params: {
-    url: string,
-    body?: string,
-    headers: any,
-    method: string,
+    url: string;
+    body?: string;
+    headers: any;
+    method: string;
 }) {
     return fetch(params.url, {
         method: params.method,
@@ -623,11 +633,11 @@ function sparqlExtractLabel(subject: string, label: string): string {
     return  `
         BIND ( str( ${subject} ) as ?uriStr)
         BIND ( strafter(?uriStr, "#") as ?label3)
-        BIND ( strafter(strafter(?uriStr, "//"), "/") as ?label6) 
-        BIND ( strafter(?label6, "/") as ?label5)   
-        BIND ( strafter(?label5, "/") as ?label4)   
-        BIND (if (?label3 != "", ?label3, 
-            if (?label4 != "", ?label4, 
+        BIND ( strafter(strafter(?uriStr, "//"), "/") as ?label6)
+        BIND ( strafter(?label6, "/") as ?label5)
+        BIND ( strafter(?label5, "/") as ?label4)
+        BIND (if (?label3 != "", ?label3,
+            if (?label4 != "", ?label4,
             if (?label5 != "", ?label5, ?label6))) as ${label})
     `;
 }
@@ -638,5 +648,3 @@ function escapeIri(iri: string) {
     }
     return `<${iri}>`;
 }
-
-export default SparqlDataProvider;

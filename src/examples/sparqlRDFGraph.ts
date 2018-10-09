@@ -68,7 +68,7 @@ function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
     const model = workspace.getModel();
-    const endpointUrl = '/sparql-endpoint';
+    const endpointUrl = '/sparql';
     const sparqlDataProvider = new SparqlDataProvider({
         endpointUrl: endpointUrl,
         imagePropertyUris: ['http://collection.britishmuseum.org/id/ontology/PX_has_main_representation'],
@@ -78,8 +78,8 @@ function onWorkspaceMounted(workspace: Workspace) {
     const loadingGraph = graphBuilder.getGraphFromRDFGraph(GRAPH);
     workspace.showWaitIndicatorWhile(loadingGraph);
 
-    loadingGraph.then(({layoutData, preloadedElements}) => model.importLayout({
-        layoutData,
+    loadingGraph.then(({diagram, preloadedElements}) => model.importLayout({
+        diagram,
         preloadedElements,
         dataProvider: sparqlDataProvider,
     })).then(() => {

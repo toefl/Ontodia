@@ -1,21 +1,35 @@
 import * as React from 'react';
 
-import { DiagramModel } from '../diagram/model';
 import { DiagramView } from '../diagram/view';
 import { PaperArea, ZoomOptions } from '../diagram/paperArea';
+
+import { AuthoringTools } from '../widgets/authoringTools';
 import { ClassTree } from '../widgets/classTree';
 import { InstancesSearch, SearchCriteria } from '../widgets/instancesSearch';
 import { LinkTypesToolbox } from '../widgets/linksToolbox';
+
+import { AsyncModel } from '../editor/asyncModel';
+import { EditorController } from '../editor/editorController';
+
+import {
+    WorkspaceContextWrapper, WorkspaceContext, WorkspaceContextTypes, WorkspaceEventHandler, WorkspaceEventKey,
+} from './workspaceContext';
 
 import { ResizableSidebar, DockSide } from './resizableSidebar';
 import { Accordion } from './accordion';
 import { AccordionItem } from './accordionItem';
 
-export interface Props {
+import { MetadataApi } from '../data/metadataApi';
+
+export interface WorkspaceMarkupProps {
     toolbar: React.ReactElement<any>;
+    model: AsyncModel;
     view: DiagramView;
+    editor: EditorController;
+    metadataApi?: MetadataApi;
     hidePanels?: boolean;
     hideToolbar?: boolean;
+    hideScrollBars?: boolean;
     searchCriteria?: SearchCriteria;
     onSearchCriteriaChanged: (criteria: SearchCriteria) => void;
     zoomOptions?: ZoomOptions;
@@ -24,6 +38,9 @@ export interface Props {
     onToggleLeftPanel?: (toggle: boolean) => void;
     isRightPanelOpen?: boolean;
     onToggleRightPanel?: (toggle: boolean) => void;
+    onWorkspaceEvent?: WorkspaceEventHandler;
+    watermarkSvg?: string;
+    watermarkUrl?: string;
 }
 
 const INTRO_CLASSES = `<p>Navigate through class tree and click a class to select it.</p>
@@ -49,13 +66,28 @@ const INTRO_CONNECTIONS = `<p>Connections panel lists all the connection present
 
 const INTRO_RESIZE = `<p>Panels can be resized and collapsed.</p>`;
 
-export class WorkspaceMarkup extends React.Component<Props, void> {
+export class WorkspaceMarkup extends React.Component<WorkspaceMarkupProps, {}> {
+    static childContextTypes = WorkspaceContextTypes;
+
     element: HTMLElement;
     classTreePanel: HTMLElement;
     linkTypesPanel: HTMLElement;
     paperArea: PaperArea;
 
     private untilMouseUpClasses: string[] = [];
+
+    getChildContext(): WorkspaceContextWrapper {
+        const {editor} = this.props;
+        const ontodiaWorkspace: WorkspaceContext = {editor, triggerWorkspaceEvent: this.triggerWorkspaceEvent};
+        return {ontodiaWorkspace};
+    }
+
+    private triggerWorkspaceEvent = (key: WorkspaceEventKey) => {
+        const {onWorkspaceEvent} = this.props;
+        if (onWorkspaceEvent) {
+            onWorkspaceEvent(key);
+        }
+    }
 
     private renderToolbar = () => {
         const {hideToolbar, toolbar} = this.props;
@@ -66,7 +98,57 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
     }
 
     private renderLeftPanel = () => {
-        if (this.props.hidePanels) { return null; }
+        const {hidePanels, editor, searchCriteria = {}} = this.props;
+        if (hidePanels) {
+            return null;
+        }
+
+        const items: Array<React.ReactElement<any>> = [];
+        items.push(
+            <AccordionItem key='classTree'
+                heading='Classes'
+                tutorialProps={{
+                    'data-position': 'right',
+                    'data-step': '1',
+                    'data-intro-id': 'tree-view',
+                    'data-intro': INTRO_CLASSES,
+                }}>
+                <ClassTree view={this.props.view}
+                    editor={this.props.editor}
+                    onClassSelected={classId => {
+                        const elementType = this.props.model.createClass(classId);
+                        this.props.onSearchCriteriaChanged({elementType});
+                    }}
+                />
+            </AccordionItem>
+        );
+        if (editor.inAuthoringMode) {
+            items.push(
+                <AccordionItem key='authoringTools' heading='Authoring Tools'>
+                    <AuthoringTools view={this.props.view}
+                        editor={this.props.editor}
+                        metadataApi={this.props.metadataApi}
+                        selectedElementType={searchCriteria.elementType}
+                    />
+                </AccordionItem>
+            );
+        }
+        items.push(
+            <AccordionItem key='instancesSearch'
+                heading='Instances'
+                tutorialProps={{
+                    'data-position': 'top',
+                    'data-step': '2',
+                    'data-intro-id': 'filter-view',
+                    'data-intro': INTRO_INSTANCES,
+                }}>
+                <InstancesSearch view={this.props.view}
+                    model={this.props.model}
+                    criteria={searchCriteria}
+                    onCriteriaChanged={this.props.onSearchCriteriaChanged}
+                />
+            </AccordionItem>
+        );
 
         return (
             <ResizableSidebar dockSide={DockSide.Left}
@@ -82,36 +164,13 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
                     'data-intro-id': 'resize',
                     'data-intro': INTRO_RESIZE,
                 }}>
-                <Accordion onStartResize={() => this.untilMouseUp({
-                    preventTextSelection: true,
-                    verticalResizing: true,
-                })}>
-                    <AccordionItem heading='Classes'
-                        tutorialProps={{
-                            'data-position': 'right',
-                            'data-step': '1',
-                            'data-intro-id': 'tree-view',
-                            'data-intro': INTRO_CLASSES,
-                        }}>
-                        <ClassTree view={this.props.view}
-                            onClassSelected={classId => {
-                                const elementType = this.props.view.model.getClassesById(classId);
-                                this.props.onSearchCriteriaChanged({elementType});
-                            }}
-                        />
-                    </AccordionItem>
-                    <AccordionItem heading='Instances'
-                        tutorialProps={{
-                            'data-position': 'top',
-                            'data-step': '2',
-                            'data-intro-id': 'filter-view',
-                            'data-intro': INTRO_INSTANCES,
-                        }}>
-                        <InstancesSearch view={this.props.view}
-                            criteria={this.props.searchCriteria || {}}
-                            onCriteriaChanged={this.props.onSearchCriteriaChanged}
-                        />
-                    </AccordionItem>
+                {/* Use different key to update when switching mode */}
+                <Accordion key={`accordion--${editor.inAuthoringMode ? 'exploring' : 'authoring'}`}
+                    onStartResize={() => this.untilMouseUp({
+                        preventTextSelection: true,
+                        verticalResizing: true,
+                    })}>
+                    {items}
                 </Accordion>
             </ResizableSidebar>
         );
@@ -140,7 +199,7 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
                             'data-intro-id': 'link-types-toolbox',
                             'data-intro': INTRO_CONNECTIONS,
                         }}>
-                        <LinkTypesToolbox view={this.props.view}/>
+                        <LinkTypesToolbox view={this.props.view} editor={this.props.editor} />
                     </AccordionItem>
                 </Accordion>
             </ResizableSidebar>
@@ -158,7 +217,10 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
                         <PaperArea ref={el => this.paperArea = el}
                             view={this.props.view}
                             zoomOptions={this.props.zoomOptions}
-                            onDragDrop={(e, position) => this.props.view.onDragDrop(e, position)}
+                            hideScrollBars={this.props.hideScrollBars}
+                            watermarkSvg={this.props.watermarkSvg}
+                            watermarkUrl={this.props.watermarkUrl}
+                            onDragDrop={(e, position) => this.props.editor.onDragDrop(e, position)}
                             onZoom={this.props.onZoom}>
                         </PaperArea>
                     </div>
@@ -208,5 +270,3 @@ export class WorkspaceMarkup extends React.Component<Props, void> {
         this.untilMouseUpClasses = [];
     }
 }
-
-export default WorkspaceMarkup;

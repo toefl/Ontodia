@@ -21,82 +21,100 @@
   }
 
   &__elements {
-    margin-left: -20px;
-    list-style-type: none;
-  }
-
-  .ontodia-icon {
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    background-size: auto 100%;
-    vertical-align: middle;
+    margin-left: -10px;
   }
 
   .parent-tree-icon {
-    white-space: nowrap;
-    width: fit-content;
-    padding: 2px 10px 2px 2px;
-    border-radius: 10px;
-    &:hover {
-      background: #dcebff91;
-      cursor: pointer;
-    }
-    &::before {
-      content: url("../images/tree-leaf-folder.png");
+      content: url("../images/tree-leaf-folder.svg");
       max-width: 19px;
       max-height: 19px;
-      margin: 2px;
+      margin: -5px;
       position: relative;
       top: 2px;
-    }
   }
 
   .default-tree-icon {
+    content: url("../images/tree-leaf.svg");
+    max-width: 19px;
+    max-height: 19px;
+    margin: -5px;
+    position: relative;
+    top: 2px;
+    left: 11px;
+  }
+
+  .tree-class {
     white-space: nowrap;
     width: fit-content;
     padding: 2px 10px 2px 2px;
     border-radius: 10px;
+    position: relative;
+    left: 30px;
+    bottom: 12px;
+    text-decoration: none;
+    color: black;
+    font-family: "Andale Mono", sans-serif;
+    font-size: 15px;
     &:hover {
       background: #dcebff91;
-      cursor: pointer;  
+      cursor: pointer;
     }
-    &::before {
-      content: url("../images/tree-leaf.png");
-      max-width: 19px;
-      max-height: 19px;
-      margin: 2px;
-      position: relative;
-      top: 2px;
-    }
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome and Opera */
   }
-  
+
   .collapse-node-icon {
     position: relative;
-    top: 12px;
-    right: 1px;
-    max-width: 9px;
-    max-height: 9px;
+    top: 5px;
+    right: 8px;
+    max-width: 12px;
+    max-height: 12px;
     float: left;
     margin-left: -6px;
-    content: url("../images/expand-properties.png");
+    content: url("../images/expand-node.svg");
     &:hover {
       background: #dcebff91;
       cursor: pointer;
     }
   }
+
   .expand-node-icon {
     position: relative;
-    top: 12px;
-    right: 1px;
-    max-width: 9px;
-    max-height: 9px;
+    top: 5px;
+    right: 8px;
+    max-width: 12px;
+    max-height: 12px;
     float: left;
     margin-left: -6px;
-    content: url("../images/collapse-properties.png");
+    content: url("../images/collapse-node.svg");
     &:hover {
       background: #dcebff91;
       cursor: pointer;
     }
+  }
+
+  .custom-parent-tree-icon {
+    content: url("../images/open-folder.svg");
+    max-width: 19px;
+    max-height: 19px;
+    margin: -5px;
+    position: relative;
+    top: 2px;
+    left: 2px;
+  }
+
+  .custom-child-tree-icon {
+  content: url("../images/closed-folder.svg");
+  max-width: 19px;
+  max-height: 19px;
+  margin: -5px;
+  position: relative;
+  top: 2px;
+  left: 13px;
   }
 }

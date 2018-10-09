@@ -5,13 +5,18 @@ import { Workspace, WorkspaceProps, DemoDataProvider } from '../index';
 
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
 
+const CLASSES = require<any>('./resources/classes.json');
+const LINK_TYPES = require<any>('./resources/linkTypes.json');
+const ELEMENTS = require<any>('./resources/elements.json');
+const LINKS  = require<any>('./resources/links.json');
+
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
-    const layoutData = tryLoadLayoutFromLocalStorage();
+    const diagram = tryLoadLayoutFromLocalStorage();
     workspace.getModel().importLayout({
-        layoutData,
-        dataProvider: new DemoDataProvider(),
+        diagram,
+        dataProvider: new DemoDataProvider(CLASSES, LINK_TYPES, ELEMENTS, LINKS),
         validateLinks: true,
     });
 }
@@ -19,12 +24,12 @@ function onWorkspaceMounted(workspace: Workspace) {
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
     ref: onWorkspaceMounted,
     onSaveDiagram: workspace => {
-        const {layoutData} = workspace.getModel().exportLayout();
-        window.location.hash = saveLayoutToLocalStorage(layoutData);
+        const diagram = workspace.getModel().exportLayout();
+        window.location.hash = saveLayoutToLocalStorage(diagram);
         window.location.reload();
     },
     viewOptions: {
-        onIriClick: iri => console.log(iri),
+        onIriClick: iri => window.open(iri),
     },
 };
 

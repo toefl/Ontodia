@@ -5,6 +5,9 @@ import { Workspace, WorkspaceProps, SparqlDataProvider, LinkTemplate } from '../
 
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
 
+const certificateIcon = require<string>('../../images/font-awesome/certificate-solid.svg');
+const cogIcon = require<string>('../../images/font-awesome/cog-solid.svg');
+
 const CUSTOM_LINK_TEMPLATE: LinkTemplate = {
     markerSource: {
         fill: '#4b4a67',
@@ -35,11 +38,11 @@ const CUSTOM_LINK_TEMPLATE: LinkTemplate = {
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
-    const layoutData = tryLoadLayoutFromLocalStorage();
+    const diagram = tryLoadLayoutFromLocalStorage();
     workspace.getModel().importLayout({
-        layoutData,
+        diagram,
         dataProvider: new SparqlDataProvider({
-            endpointUrl: '/sparql-endpoint',
+            endpointUrl: '/sparql',
             imagePropertyUris: [
                 'http://collection.britishmuseum.org/id/ontology/PX_has_main_representation',
                 'http://xmlns.com/foaf/0.1/img',
@@ -51,19 +54,19 @@ function onWorkspaceMounted(workspace: Workspace) {
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
     ref: onWorkspaceMounted,
     onSaveDiagram: workspace => {
-        const {layoutData} = workspace.getModel().exportLayout();
-        window.location.hash = saveLayoutToLocalStorage(layoutData);
+        const diagram = workspace.getModel().exportLayout();
+        window.location.hash = saveLayoutToLocalStorage(diagram);
         window.location.reload();
     },
     viewOptions: {
         typeStyleResolvers: [
             types => {
                 if (types.indexOf('http://www.w3.org/2000/01/rdf-schema#Class') !== -1) {
-                    return {icon: 'glyphicon glyphicon-certificate'};
+                    return {icon: certificateIcon};
                 } else if (types.indexOf('http://www.w3.org/2002/07/owl#Class') !== -1) {
-                    return {icon: 'glyphicon glyphicon-certificate'};
+                    return {icon: certificateIcon};
                 } else if (types.indexOf('http://www.w3.org/2002/07/owl#ObjectProperty') !== -1) {
-                    return {icon: 'glyphicon glyphicon-cog'};
+                    return {icon: cogIcon};
                 } else if (types.indexOf('http://www.w3.org/2002/07/owl#DatatypeProperty') !== -1) {
                     return {color: '#046380'};
                 } else {
@@ -74,7 +77,7 @@ const props: WorkspaceProps & ClassAttributes<Workspace> = {
         linkTemplateResolvers: [
             type => CUSTOM_LINK_TEMPLATE,
         ],
-        onIriClick: iri => console.log(iri),
+        onIriClick: iri => window.open(iri),
     },
 };
 

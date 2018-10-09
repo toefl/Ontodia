@@ -1,20 +1,24 @@
 import * as React from 'react';
 
-import { Dictionary, ElementModel, LocalizedString } from '../data/model';
+import { ElementModel, ElementIri, Dictionary } from '../data/model';
 import { FilterParams } from '../data/provider';
 
 import { Element as DiagramElement, FatLinkType, FatClassModel } from '../diagram/elements';
 import { formatLocalizedLabel } from '../diagram/model';
 import { DiagramView } from '../diagram/view';
-import { EventObserver } from '../viewUtils/events';
 
-import { ListElementView } from './listElementView';
+import { AsyncModel } from '../editor/asyncModel';
+import { EventObserver } from '../viewUtils/events';
+import { SearchResults } from './searchResults';
+
+import { WorkspaceContextTypes, WorkspaceContextWrapper, WorkspaceEventKey } from '../workspace/workspaceContext';
 
 const DirectionInImage = require<string>('../../../images/direction-in.png');
 const DirectionOutImage = require<string>('../../../images/direction-out.png');
 
 export interface InstancesSearchProps {
     className?: string;
+    model: AsyncModel;
     view: DiagramView;
     criteria: SearchCriteria;
     onCriteriaChanged: (criteria: SearchCriteria) => void;
@@ -34,22 +38,25 @@ export interface State {
     readonly resultId?: number;
     readonly error?: any;
     readonly items?: ReadonlyArray<ElementModel>;
+    readonly selection?: ReadonlySet<ElementIri>;
     readonly moreItemsAvailable?: boolean;
-    readonly selectedItems?: Readonly<Dictionary<true>>;
 }
 
 const CLASS_NAME = 'ontodia-instances-search';
 
 export class InstancesSearch extends React.Component<InstancesSearchProps, State> {
+    static contextTypes = WorkspaceContextTypes;
+    readonly context: WorkspaceContextWrapper;
+
     private readonly listener = new EventObserver();
 
     private currentRequest: FilterParams;
 
-    constructor(props: InstancesSearchProps) {
-        super(props);
+    constructor(props: InstancesSearchProps, context: any) {
+        super(props, context);
         this.state = {
-            selectedItems: {},
             resultId: 0,
+            selection: new Set<ElementIri>(),
         };
     }
 
@@ -67,8 +74,9 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
 
         return <div className={className} data-state={progressState}>
             <div className='ontodia-progress'>
-                <div className='ontodia-progress-bar ontodia-progress-bar-striped active' role='progressbar'
-                    aria-valuemin='0' aria-valuemax='100' aria-valuenow='100'
+                <div className='ontodia-progress-bar ontodia-progress-bar-striped active'
+                    role='progressbar'
+                    aria-valuemin={0} aria-valuemax={100} aria-valuenow={100}
                     style={{width: '100%'}}>
                 </div>
             </div>
@@ -93,9 +101,15 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
             </div>
             {/* specify resultId as key to reset scroll position when loaded new search results */}
             <div className={`${CLASS_NAME}__rest`} key={this.state.resultId}>
-                {this.renderSearchResults()}
+                <SearchResults
+                    view={this.props.view}
+                    items={this.state.items}
+                    selection={this.state.selection}
+                    onSelectionChanged={this.onSelectionChanged}
+                />
                 <div className={`${CLASS_NAME}__rest-end`}>
-                    <button type='button' className={`${CLASS_NAME}__load-more btn btn-primary`}
+                    <button type='button'
+                        className={`${CLASS_NAME}__load-more ontodia-btn ontodia-btn-primary`}
                         disabled={this.state.quering}
                         style={{display: this.state.moreItemsAvailable ? undefined : 'none'}}
                         onClick={() => this.queryItems(true)}>
@@ -105,6 +119,10 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
                 </div>
             </div>
         </div>;
+    }
+
+    private onSelectionChanged = (newSelection: ReadonlySet<ElementIri>) => {
+        this.setState({selection: newSelection});
     }
 
     private renderCriteria(): React.ReactElement<any> {
@@ -151,55 +169,12 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
     }
 
     private renderRemoveCriterionButtons(onClick: () => void) {
-        return <div className={`${CLASS_NAME}__criterion-remove btn-group btn-group-xs`}>
-            <button type='button' className='btn btn-default' title='Remove criteria' onClick={onClick}>
+        return <div className={`${CLASS_NAME}__criterion-remove ontoidia-btn-group ontodia-btn-group-xs`}>
+            <button type='button' className='ontodia-btn ontodia-btn-default' title='Remove criteria'
+                onClick={onClick}>
                 <span className='fa fa-times' aria-hidden='true'></span>
             </button>
         </div>;
-    }
-
-    private renderSearchResults(): React.ReactElement<any> {
-        const items = this.state.items || [];
-        return <ul className={`${CLASS_NAME}__results`}>
-            {items.map(model => this.renderResultItem(model))}
-        </ul>;
-    }
-
-    private renderResultItem(model: ElementModel) {
-        const alreadyOnDiagram = this.props.view.model.elements.findIndex(
-            element => element.iri === model.id && element.group === undefined
-        ) >= 0;
-
-        return (
-            <ListElementView key={model.id}
-                model={model}
-                view={this.props.view}
-                disabled={alreadyOnDiagram}
-                selected={this.state.selectedItems[model.id] || false}
-                onClick={alreadyOnDiagram ? undefined : () => this.toggleSelectedItem(model.id)}
-                onDragStart={e => {
-                    const elementIds = Object.keys({...this.state.selectedItems, [model.id]: true});
-                    try {
-                        e.dataTransfer.setData('application/x-ontodia-elements', JSON.stringify(elementIds));
-                    } catch (ex) { // IE fix
-                        e.dataTransfer.setData('text', JSON.stringify(elementIds));
-                    }
-                    return false;
-                }}
-            />
-        );
-    }
-
-    private toggleSelectedItem(itemId: string) {
-        this.setState((state): State => {
-            const selectedItems: Dictionary<true> = {...state.selectedItems};
-            if (selectedItems[itemId]) {
-                delete selectedItems[itemId];
-            } else {
-                selectedItems[itemId] = true;
-            }
-            return {selectedItems};
-        });
     }
 
     private submitCriteriaUpdate() {
@@ -210,15 +185,6 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
 
     componentDidMount() {
         this.listener.listen(this.props.view.events, 'changeLanguage', () => this.forceUpdate());
-        this.listener.listen(this.props.view.model.events, 'changeCells', () => {
-            const selectedItems: Dictionary<true> = {...this.state.selectedItems};
-            for (const element of this.props.view.model.elements) {
-                if (element.group === undefined && selectedItems[element.iri]) {
-                    delete selectedItems[element.iri];
-                }
-            }
-            this.setState({selectedItems});
-        });
         this.queryItems(false);
     }
 
@@ -253,8 +219,8 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
                 quering: false,
                 error: undefined,
                 items: undefined,
+                selection: new Set<ElementIri>(),
                 moreItemsAvailable: false,
-                selectedItems: {},
             });
             return;
         }
@@ -266,11 +232,13 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
             moreItemsAvailable: false,
         });
 
-        this.props.view.model.dataProvider.filter(request).then(elements => {
+        this.props.model.dataProvider.filter(request).then(elements => {
             if (this.currentRequest !== request) { return; }
             this.processFilterData(elements);
+            this.context.ontodiaWorkspace.triggerWorkspaceEvent(WorkspaceEventKey.searchQueryItem);
         }).catch(error => {
             if (this.currentRequest !== request) { return; }
+            // tslint:disable-next-line:no-console
             console.error(error);
             this.setState({quering: false, error});
         });
@@ -280,7 +248,7 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
         const requestedAdditionalItems = this.currentRequest.offset > 0;
 
         const existingIris: { [iri: string]: true } = {};
-        
+
         if (requestedAdditionalItems) {
             this.state.items.forEach(item => existingIris[item.id] = true);
         }
@@ -301,9 +269,9 @@ export class InstancesSearch extends React.Component<InstancesSearchProps, State
                 quering: false,
                 resultId: this.state.resultId + 1,
                 items,
+                selection: new Set<ElementIri>(),
                 error: undefined,
                 moreItemsAvailable,
-                selectedItems: {},
             });
         }
     }

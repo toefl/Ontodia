@@ -1,72 +1,63 @@
 import * as React from 'react';
-import * as _ from 'lodash';
 
-import { Dictionary, LocalizedString } from '../data/model';
 import { FatClassModel } from '../diagram/elements';
-import { DiagramView } from '../diagram/view';
-import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
 import { Node } from './node';
+import { ElementTypeIri } from '../data/model';
 
-export interface TreeNodesProps {
-    roots?: ReadonlyArray<FatClassModel> | undefined;
-    expanded?: Boolean;
-    resultIds?: Array<string> | undefined;
-    searchString?: string | undefined;
-    lang?: Readonly<string> | undefined;
-    onClassSelected: (classId: string) => void;
+export interface Props {
+    roots?: ReadonlyArray<FatClassModel>;
+    expanded?: boolean;
+    classesToDisplay?: Array<FatClassModel>;
+    searchString?: string;
+    lang?: Readonly<string>;
+    onClassSelected: (classId: ElementTypeIri) => void;
 }
 
 const CLASS_NAME = 'ontodia-class-tree';
 
-export class TreeNodes extends React.Component<TreeNodesProps, {}> {
-    public static defaultProps: Partial<TreeNodesProps> = {
+export class TreeNodes extends React.Component<Props, {}> {
+    public static defaultProps: Partial<Props> = {
         expanded: true,
-        lang: 'en',
     };
 
-    constructor(props: TreeNodesProps) {
+    constructor(props: Props) {
         super(props);
         this.filter = this.filter.bind(this);
+        this.compare = this.compare.bind(this);
     }
 
-    filter(root: FatClassModel): Boolean {
-        const { resultIds } = this.props;
-        if (resultIds) {
-            return Boolean(resultIds.find(id => root.id === id));
+    filter(root: FatClassModel): boolean {
+        const { classesToDisplay } = this.props;
+        if (classesToDisplay && classesToDisplay.length > 0) {
+            return Boolean(classesToDisplay.find(resultRoot => resultRoot === root));
         } else {
             return true;
         }
     }
 
     compare(node1: FatClassModel, node2: FatClassModel) {
-        let classLabel1 = formatLocalizedLabel(node1.id, node1.label, Boolean(this) ? this.props.lang : 'en');
-        let classLabel2 = formatLocalizedLabel(node2.id, node2.label, Boolean(this) ? this.props.lang : 'en');
-        if (classLabel1 < classLabel2) {
-            return -1;
-        } else {
-            return 1;
-        }
+        const classLabel1 = formatLocalizedLabel(node1.id, node1.label, this.props.lang);
+        const classLabel2 = formatLocalizedLabel(node2.id, node2.label, this.props.lang);
+        return classLabel1 < classLabel2 ? -1 : 1;
     }
-    getRenderRoots() {
+
+    private getRenderRoots() {
         let roots;
-        if (this.props.resultIds && this.props.resultIds.length === 0) {
-            roots = this.props.roots;
-        } else {
-            roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
-        }
+        roots = this.props.roots && this.props.roots.filter(this.filter).sort(this.compare);
         return roots;
     }
+
     render() {
-        let { expanded, resultIds, searchString, lang, onClassSelected } = this.props;
+        const { expanded, classesToDisplay, searchString, lang, onClassSelected } = this.props;
         const roots = this.getRenderRoots();
 
         return (
             <ul className={`${CLASS_NAME}__elements`} style={{ display: expanded ? 'block' : 'none' }}>
                 {roots && roots.map(element => (
                     <div key={`node-${element.id}`}>
-                        <Node node={element} resultIds={resultIds}
-                            lang={lang} searchString={searchString} onClassSelected={onClassSelected} />
+                        <Node node={element} classesToDisplay={classesToDisplay} searchString={searchString}
+                            onClassSelected={onClassSelected} lang={lang} />
                     </div>
                 ))}
             </ul>

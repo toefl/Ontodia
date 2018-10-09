@@ -5,15 +5,82 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Latest]
-## [0.8.0]
+
+## [0.9.3] - 2018-09-20
+### Added
+- Ontodia watermark to diagrams.
+
+### Changed
+- Using CircleCI instead of Travis for builds.
+- Updated dependencies 
+
+### Fixed
+- Force layout for nested elements.
+
+## [0.9.2] - 2018-09-05
+### Added
+- "Clear All" button to the toolbar.
+- "Jump to resource" button to the halo.
+- `WorkspaceProps.hideScrollBars` and `ZoomOptions.requireCtrl` options.
+- Workspace events on various user actions and operations completion.
+
+### Changed
+- **[Breaking]** Export and import diagrams using new `SerializedDiagram` interface,
+compatible with JSON-LD.
+- Select a range of items in a search result using Shift and Control keys.
+
+### Fixed
+- Limit zoom to fit level by `ZoomOptions.maxFit`.
+
+## [0.9.1] - 2018-07-20
+### Fixed
+- Show halo for links only in authoring mode.
+- Wait until element models loaded when importing layout.
+
+## [0.9.0] - 2018-07-19
+### Added
+- Data authoring capabilities (see `AuthoringState`, `MetadataApi`, `ValidationApi`).
+- Support for "pinned" paper widgets (which doesn't move on paper scroll).
+- Tooltips with IRIs to Classes, Instances, Connections and standard template.
+- Patterns for datatype properties through `propertyConfigurations` property of
+`SparqlDataProvider` configuration.
+
+### Changed
+- **[Breaking]** Introduce `AsyncModel` derived from `DiagramModel` managing all async
+operations (e.g. loading labels, links, etc).
+- **[Breaking]** Extract standard widget handling (halo, dialogs) into `EditorController`.
+- **[Breaking]** Use image URLs instead of CSS classes to customize icons.
+- Made `inverseOf` optional and allow multiple items with same `id` or `inverseId` in
+`linkConfigurations` property of `SparqlDataProvider` configuration.
+- Made look and feel of controls and templates more modern.
+
+## [0.8.1] - 2018-07-02
+### Changed
+- **[Breaking]** Introduce nominal types for element, class, link type and property type IRIs.
+
+### Fixed
+- **[Breaking]** Assumption "element ID equals its IRI" when dealing with sources
+and targets of links.
+- Non-updating link labels when changing the language.
+- Extracting link and property types metadata for multiple languages.
+- Filtering in Connections menu for upper-case text.
+- Increase default inter-node distance for force layout.
+
+## [0.8.0] - 2018-04-16
 ### Added
 - Nesting (grouping) elements on diagram using `groupBy` option and `<EmbeddedLayer />`
 element in custom templates.
 - Buttons to toggle visiblility of left and right panels.
 - `renderTo` function to create Workspace using compiled in bundled mode library.
-- Separate library bundle for IE11 compatibility (when compile with SUPPORT_IE flag).
+- Separate library bundle for IE11 compatibility (when compile with `SUPPORT_IE` flag).
+- Command history API hooks with `CommandHistory`.
+- Blank nodes support to `RdfDataProvider`.
 
 ### Changed
+- **[Breaking]** Optimize `SparqlDataProvider`: change `elementInfoQuery` from SELECT to
+CONSTRUCT query, extract `linkTypesOf` statistics into separate `linkTypesOfStatsQuery`.
+- **[Breaking]** Throw exception instead of returning null or undefined when fetching
+error happens in `RdfDataProvider`.
 - **[Breaking]** Replaced JointJS rendering engine with our own React-based
 implementation.
 - **[Breaking]** Replaced Backbone property and event system with native class
@@ -22,27 +89,19 @@ properties and composition-based event emitter implementation.
 will be empty until element info will load.
 - **[Breaking]** Split up `isViewOnly` option into `hideToolbar`, `hidePanels`
 and `hideHalo`.
-- Removed default "checkboard" background in the diagram area.
-- Limit maximum number of connected elements in Connection menu to 100.
-
-### Fixed
-- Drag and drop from class tree in Safari.
-- Missing "All" entry in Connections menu when there are two connections with
-the same ID in the list.
-- Rewrite `https://` IRIs to `http://` when adding an element to diagram.
-
-## [0.7.0]
-### Changed
-- **[Breaking]** Optimize `SparqlDataProvider`: change `elementInfoQuery` from SELECT to
-CONSTRUCT query, extract `linkTypesOf` statistics into separate `linkTypesOfStatsQuery`.
-- **[Breaking]** Throw exception instead of returning null or undefined when fetching
-error happens in `RdfDataProvider`.
 - Simplify overriding default toolbar with a custom one by providing default
 callbacks in props.
+- Removed default "checkboard" background in the diagram area.
+- Replace default templates with unified `standard` template,
+removed special templates for person and organization.
+- Limit maximum number of connected elements in Connection menu to 100.
 
 ### Fixed
 - `stroke-dasharray` style override for link labels.
 - Error when RDF data storage returns `undefined` statements.
+- Drag and drop from class tree in Safari.
+- Missing "All" entry in Connections menu when there are two connections with
+the same ID in the list.
 
 ## [0.6.1] - 2017-10-17
 ### Added
@@ -278,9 +337,13 @@ info loaded from `DataProvider`.
 ### Added
 - Ontodia published on GitHub as OSS project.
 
-[Latest]: https://github.com/ontodia-org/ontodia/compare/v0.6.1...HEAD
-[0.8.0]: https://github.com/ontodia-org/ontodia/compare/v0.8.0...v0.6.1
-[0.7.0]: https://github.com/ontodia-org/ontodia/compare/v0.7.0...v0.6.1
+[Latest]: https://github.com/ontodia-org/ontodia/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/ontodia-org/ontodia/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/ontodia-org/ontodia/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/ontodia-org/ontodia/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/ontodia-org/ontodia/compare/v0.8.1...v0.9.0
+[0.8.1]: https://github.com/ontodia-org/ontodia/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/ontodia-org/ontodia/compare/v0.6.1...v0.8.0
 [0.6.1]: https://github.com/ontodia-org/ontodia/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ontodia-org/ontodia/compare/v0.5.3...v0.6.0
 [0.5.3]: https://github.com/ontodia-org/ontodia/compare/v0.5.2...v0.5.3

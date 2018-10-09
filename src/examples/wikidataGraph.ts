@@ -1,10 +1,7 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
 
-import {
-    Workspace, WorkspaceProps, SparqlDataProvider, OrganizationTemplate, PersonTemplate,
-    SparqlGraphBuilder, WikidataSettings,
-} from '../index';
+import { Workspace, WorkspaceProps, SparqlDataProvider, SparqlGraphBuilder, WikidataSettings } from '../index';
 
 import { onPageLoad } from './common';
 
@@ -12,7 +9,7 @@ function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
     const dataProvider = new SparqlDataProvider({
-        endpointUrl: '/sparql-endpoint',
+        endpointUrl: '/wikidata',
         imagePropertyUris: [
             'http://www.wikidata.org/prop/direct/P18',
             'http://www.wikidata.org/prop/direct/P154',
@@ -37,8 +34,8 @@ function onWorkspaceMounted(workspace: Workspace) {
     );
     workspace.showWaitIndicatorWhile(loadingGraph);
 
-    loadingGraph.then(({layoutData, preloadedElements}) =>
-        workspace.getModel().importLayout({layoutData, preloadedElements, dataProvider}),
+    loadingGraph.then(({diagram, preloadedElements}) =>
+        workspace.getModel().importLayout({diagram, preloadedElements, dataProvider}),
     ).then(() => {
         workspace.forceLayout();
         workspace.zoomToFit();

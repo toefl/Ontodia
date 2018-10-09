@@ -1,67 +1,69 @@
 import * as React from 'react';
-import * as _ from 'lodash';
 
-import { Dictionary, LocalizedString } from '../data/model';
 import { FatClassModel } from '../diagram/elements';
-import { DiagramView } from '../diagram/view';
-import { EventObserver } from '../viewUtils/events';
 import { formatLocalizedLabel } from '../diagram/model';
 import { TreeNodes } from './treeNodes';
+import { ElementTypeIri } from '../data/model';
 
-export interface NodeTreeProps {
+export interface Props {
     node: FatClassModel;
-    lang?: Readonly<string> | undefined;
-    resultIds?: Array<string> | undefined;
-    searchString?: string | undefined;
-    onClassSelected: (classId: string) => void;
+    lang?: string;
+    classesToDisplay?: Array<FatClassModel>;
+    searchString?: string;
+    onClassSelected: (classId: ElementTypeIri) => void;
+    onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number }) => void;
 }
 
-interface ClassTreeState {
-    expanded?: Boolean | undefined;
-    bgColor?: string | undefined;
+export interface State {
+    expanded?: boolean;
+    bgColor?: string;
+    mapClassIcons?: { [typeId: string]: string };
 }
 
-const CLASS_NAME = 'ontodia-class-tree';
-
-export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
-    constructor(props: NodeTreeProps) {
+export class Node extends React.Component<Props, State> {
+    constructor(props: Props) {
         super(props);
-
-        this.state = { expanded: false };
+        const resultEmpty = !(this.props.classesToDisplay && this.props.classesToDisplay.length !== 0);
+        if (resultEmpty) {
+            this.state = { expanded: false };
+        } else {
+            this.state = { expanded: true };
+        }
         this.toggle = this.toggle.bind(this);
         this.showInstances = this.showInstances.bind(this);
     }
 
-    componentWillReceiveProps(nextProps: NodeTreeProps) {
-        const { resultIds } = nextProps;
-        if (resultIds !== this.props.resultIds) {
+    componentWillReceiveProps(nextProps: Props) {
+        const { classesToDisplay } = nextProps;
+        if (classesToDisplay !== this.props.classesToDisplay) {
             this.setState({ expanded: false });
         }
-        if (resultIds && resultIds.length !== 0) {
-            this.setState({ expanded: Boolean(resultIds.find(id => id === this.props.node.id)) });
+        if (classesToDisplay && classesToDisplay.length !== 0) {
+            this.setState({ expanded: true });
         }
-        if ( this.state.bgColor === 'rgb(190,235,255)' ) {
-            this.setState({bgColor: undefined});
+        if (this.state.bgColor !== undefined) {
+            this.setState({ bgColor: undefined });
         }
     }
 
-    toggle() {
+    private toggle() {
         this.setState({ expanded: !this.state.expanded });
     }
 
-    showInstances() {
-        this.setState({bgColor: 'rgb(190,235,255)'});
+    private showInstances(e: React.MouseEvent<HTMLAnchorElement>) {
+        this.setState({ bgColor: 'rgb(190,235,255)' });
         this.props.onClassSelected(this.props.node.id);
+        e.preventDefault();
     }
 
-    hasChildren(node: FatClassModel): string {
-        if (node.derived.length !== 0) {
+    private getDefaultNodeIcon(): string {
+        if (this.props.node.derived.length !== 0) {
             return 'parent-tree-icon';
         } else {
             return 'default-tree-icon';
         }
     }
-    getIcon(): string {
+    private getToggleIcon(): string {
         if (this.props.node.derived.length === 0) {
             return undefined;
         } else {
@@ -73,31 +75,41 @@ export class Node extends React.Component<NodeTreeProps, ClassTreeState> {
         }
     }
 
-    render(): React.ReactElement<any> {
-        const { node, resultIds, searchString, lang, onClassSelected } = this.props;
-        const bgColor = this.state.bgColor;
-        let bold = false;
-        if (Boolean(resultIds) && resultIds.length !== 0) {
-            for (let i = 0; i < node.label.length; i++) {
-                if (node.label[i].text.toUpperCase().indexOf(searchString.toUpperCase()) !== -1) {
-                    bold = true;
+    private boldNode(classLabel: string): boolean {
+        if (Boolean(this.props.classesToDisplay) && this.props.classesToDisplay.length !== 0) {
+            if (classLabel.toUpperCase().indexOf(this.props.searchString.toUpperCase()) !== -1) {
+                return true;
+            }
+            if (Boolean(this.props.node.count)) {
+                if (this.props.node.count.toString().indexOf(this.props.searchString.toUpperCase()) !== -1) {
+                    return true;
                 }
             }
-            if (node.count.toString().indexOf(searchString.toUpperCase()) !== -1) {
-                bold = true;
-            }
         }
+        return false;
+    }
+    render(): React.ReactElement<any> {
+        const { node, classesToDisplay, searchString, lang, onClassSelected } = this.props;
+        const bgColor = this.state.bgColor;
+        const classLabel = formatLocalizedLabel(node.id, node.label, lang);
+        const bold = this.boldNode(classLabel);
+
         return (
-            <div>
-                <div className='container' role='treeitem'>
-                    <div className={this.getIcon()} onClick={this.toggle} />
-                    <li className={this.hasChildren(node)} onClick={this.showInstances}
-                        style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}>
-                        {formatLocalizedLabel(node.id, node.label, lang) + ' (' + node.count + ')'}
-                    </li>
-                    <TreeNodes roots={node.derived} expanded={this.state.expanded} resultIds={resultIds}
+            <div className='container' role='tree-item'>
+                <div className={this.getToggleIcon()} onClick={this.toggle} />
+
+                <div className={this.state.mapClassIcons && this.state.mapClassIcons[node.id] ?
+                    this.state.mapClassIcons[node.id] : this.getDefaultNodeIcon()} />
+
+                <a href={node.id} className='tree-class' onClick={(e) => this.showInstances(e)}
+                    style={{ fontWeight: bold ? 'bold' : 'normal', background: bgColor }}>
+                    {classLabel} {Boolean(node.count) ? (<span className='ontodia-badge'>{node.count}</span>) : null}
+                </a>
+
+                {node.derived && node.derived.length !== 0 ? (
+                    <TreeNodes roots={node.derived} expanded={this.state.expanded} classesToDisplay={classesToDisplay}
                         searchString={searchString} lang={lang} onClassSelected={onClassSelected} />
-                </div>
+                ) : (null)}
             </div>
         );
     }

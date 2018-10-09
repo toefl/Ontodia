@@ -2,14 +2,19 @@ import * as React from 'react';
 import * as _ from 'lodash';
 
 import { LocalizedString, LinkCount } from '../data/model';
+import { changeLinkTypeVisibility } from '../diagram/commands';
 import { Element, FatLinkType } from '../diagram/elements';
+import { CommandHistory } from '../diagram/history';
 import { DiagramView } from '../diagram/view';
 import { formatLocalizedLabel } from '../diagram/model';
+
+import { EditorController } from '../editor/editorController';
 
 import { Debouncer } from '../viewUtils/async';
 import { EventObserver } from '../viewUtils/events';
 
 interface LinkInToolBoxProps {
+    history: CommandHistory;
     link: FatLinkType;
     count: number;
     language?: string;
@@ -27,13 +32,7 @@ class LinkInToolBox extends React.Component<LinkInToolBoxProps, {}> {
     }
 
     private changeState = (state: LinkTypeVisibility) => {
-        if (state === 'invisible') {
-            this.props.link.setVisibility({visible: false, showLabel: false});
-        } else if (state === 'withoutLabels') {
-            this.props.link.setVisibility({visible: true, showLabel: false});
-        } else if (state === 'allVisible') {
-            this.props.link.setVisibility({visible: true, showLabel: true});
-        }
+        changeLinkTypeState(this.props.history, state, [this.props.link]);
     }
 
     private isChecked = (stateName: LinkTypeVisibility): boolean => {
@@ -84,17 +83,20 @@ class LinkInToolBox extends React.Component<LinkInToolBoxProps, {}> {
         return (
             <li data-linkTypeId={this.props.link.id} className='ontodia-list-group-item linkInToolBox clearfix'>
                 <span className='ontodia-btn-group ontodia-btn-group-xs' data-toggle='buttons'>
-                    <label className={'ontodia-btn ontodia-btn-default' + (this.isChecked('invisible') ? ' active' : '')}
+                    <label className={
+                            'ontodia-btn ontodia-btn-default' + (this.isChecked('invisible') ? ' active' : '')}
                         id='invisible' title='Hide links and labels'
                         onClick={() => this.changeState('invisible')}>
                         <span className='fa fa-times' aria-hidden='true' />
                     </label>
-                    <label className={'ontodia-btn ontodia-btn-default' + (this.isChecked('withoutLabels') ? ' active' : '')}
+                    <label className={
+                            'ontodia-btn ontodia-btn-default' + (this.isChecked('withoutLabels') ? ' active' : '')}
                         id='withoutLabels' title='Show links without labels'
                         onClick={() => this.changeState('withoutLabels')}>
                         <span className='fa fa-arrows-h' aria-hidden='true' />
                     </label>
-                    <label className={'ontodia-btn ontodia-btn-default' + (this.isChecked('allVisible') ? ' active' : '')}
+                    <label className={
+                            'ontodia-btn ontodia-btn-default' + (this.isChecked('allVisible') ? ' active' : '')}
                         id='allVisible' title='Show links with labels'
                         onClick={() => this.changeState('allVisible')}>
                         <span className='fa fa-text-width' aria-hidden='true' />
@@ -102,13 +104,14 @@ class LinkInToolBox extends React.Component<LinkInToolBoxProps, {}> {
                 </span>
                 <div className='link-title'>{this.getText()}</div>
                 {badgeContainer}
-                <a className='filter-button' onClick={this.onPressFilter}><img/></a>
+                <div className='linkInToolBox__filter-button' onClick={this.onPressFilter} />
             </li>
         );
     }
 }
 
 interface LinkTypesToolboxViewProps {
+    history: CommandHistory;
     links: ReadonlyArray<FatLinkType>;
     countMap: { readonly [linkTypeId: string]: number };
     selectedElement: Element;
@@ -137,22 +140,6 @@ class LinkTypesToolboxView extends React.Component<LinkTypesToolboxViewProps, { 
         this.setState({filterKey: ''});
     }
 
-    private changeState = (state: LinkTypeVisibility, links: FatLinkType[]) => {
-        if (state === 'invisible') {
-            for (const link of links) {
-                link.setVisibility({visible: false, showLabel: false});
-            }
-        } else if (state === 'withoutLabels') {
-            for (const link of links) {
-                link.setVisibility({visible: true, showLabel: false});
-            }
-        } else if (state === 'allVisible') {
-            for (const link of links) {
-                link.setVisibility({visible: true, showLabel: true});
-            }
-        }
-    }
-
     private getLinks = () => {
         return (this.props.links || []).filter(linkType => {
             const text = formatLocalizedLabel(linkType.id, linkType.label, this.props.language).toLowerCase();
@@ -166,8 +153,8 @@ class LinkTypesToolboxView extends React.Component<LinkTypesToolboxViewProps, { 
         const views: React.ReactElement<any>[] = [];
         for (const link of links) {
             views.push(
-                <LinkInToolBox
-                    key={link.id}
+                <LinkInToolBox key={link.id}
+                    history={this.props.history}
                     link={link}
                     onPressFilter={this.props.filterCallback}
                     language={this.props.language}
@@ -181,6 +168,7 @@ class LinkTypesToolboxView extends React.Component<LinkTypesToolboxViewProps, { 
 
     render() {
         const className = 'link-types-toolbox';
+        const {history} = this.props;
 
         const dataState = this.props.dataState || null;
         const links = this.getLinks();
@@ -224,17 +212,17 @@ class LinkTypesToolboxView extends React.Component<LinkTypesToolboxViewProps, { 
                         <div className='ontodia-btn-group ontodia-btn-group-xs'>
                             <label className='ontodia-btn ontodia-btn-default'
                                 title='Hide links and labels'
-                                onClick={() => this.changeState('invisible', links)}>
+                                onClick={() => changeLinkTypeState(history, 'invisible', links)}>
                                 <span className='fa fa-times' aria-hidden='true' />
                             </label>
                             <label className='ontodia-btn ontodia-btn-default'
                                 title='Show links without labels'
-                                onClick={() => this.changeState('withoutLabels', links)}>
+                                onClick={() => changeLinkTypeState(history, 'withoutLabels', links)}>
                                 <span className='fa fa-arrows-h' aria-hidden='true' />
                             </label>
                             <label className='ontodia-btn ontodia-btn-default'
                                 title='Show links with labels'
-                                onClick={() => this.changeState('allVisible', links)}>
+                                onClick={() => changeLinkTypeState(history, 'allVisible', links)}>
                                 <span className='fa fa-text-width' aria-hidden='true' />
                             </label>
                         </div>
@@ -244,10 +232,8 @@ class LinkTypesToolboxView extends React.Component<LinkTypesToolboxViewProps, { 
                 <div className='ontodia-progress'>
                     <div className='ontodia-progress-bar ontodia-progress-bar-striped active'
                         role='progressbar'
-                        aria-valuemin='0'
-                        aria-valuemax='100'
-                        aria-valuenow='100'
-                        style={ {width: '100%'} }>
+                        aria-valuemin={0} aria-valuemax={100} aria-valuenow={100}
+                        style={{width: '100%'}}>
                     </div>
                 </div>
                 <div className={`${className}__rest`}>
@@ -263,6 +249,7 @@ class LinkTypesToolboxView extends React.Component<LinkTypesToolboxViewProps, { 
 
 export interface LinkTypesToolboxProps {
     view: DiagramView;
+    editor: EditorController;
 }
 
 export interface LinkTypesToolboxState {
@@ -282,11 +269,11 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, Lin
     constructor(props: LinkTypesToolboxProps, context: any) {
         super(props, context);
 
-        const {view} = this.props;
+        const {view, editor} = this.props;
 
-        this.listener.listen(view.model.events, 'loadingSuccess', () => this.updateOnCurrentSelection());
         this.listener.listen(view.events, 'changeLanguage', () => this.updateOnCurrentSelection());
-        this.listener.listen(view.events, 'changeSelection', () => {
+        this.listener.listen(editor.model.events, 'loadingSuccess', () => this.updateOnCurrentSelection());
+        this.listener.listen(editor.events, 'changeSelection', () => {
             this.debounceSelection.call(this.updateOnCurrentSelection);
         });
 
@@ -304,9 +291,9 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, Lin
     }
 
     private updateOnCurrentSelection = () => {
-        const {view} = this.props;
-        const single = view.selection.length === 1 ? view.selection[0] : null;
-        if (single !== this.state.selectedElement) {
+        const {editor} = this.props;
+        const single = editor.selection.length === 1 ? editor.selection[0] : null;
+        if (single !== this.state.selectedElement && single instanceof Element) {
             this.requestLinksOf(single);
         }
     }
@@ -316,13 +303,14 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, Lin
             const request = {elementId: selectedElement.iri};
             this.currentRequest = request;
             this.setState({dataState: 'querying', selectedElement});
-            this.props.view.model.dataProvider.linkTypesOf(request).then(linkTypes => {
+            this.props.editor.model.dataProvider.linkTypesOf(request).then(linkTypes => {
                 if (this.currentRequest !== request) { return; }
                 const {linksOfElement, countMap} = this.computeStateFromRequestResult(linkTypes);
                 this.subscribeOnLinksEvents(linksOfElement);
                 this.setState({dataState: 'finished', linksOfElement, countMap});
             }).catch(error => {
                 if (this.currentRequest !== request) { return; }
+                // tslint:disable-next-line:no-console
                 console.error(error);
                 this.setState({dataState: 'error', linksOfElement: undefined, countMap: {}});
             });
@@ -341,7 +329,7 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, Lin
         const linksOfElement: FatLinkType[] = [];
         const countMap: { [linkTypeId: string]: number } = {};
 
-        const model = this.props.view.model;
+        const model = this.props.editor.model;
         for (const linkType of linkTypes) {
             const type = model.createLinkType(linkType.id);
             linksOfElement.push(type);
@@ -366,9 +354,10 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, Lin
     }
 
     render() {
-        const {view} = this.props;
+        const {view, editor} = this.props;
         const {selectedElement, dataState, linksOfElement, countMap} = this.state;
-        return <LinkTypesToolboxView dataState={dataState}
+        return <LinkTypesToolboxView history={editor.model.history}
+            dataState={dataState}
             links={linksOfElement}
             countMap={countMap}
             filterCallback={this.onAddToFilter}
@@ -381,4 +370,18 @@ export class LinkTypesToolbox extends React.Component<LinkTypesToolboxProps, Lin
         const {selectedElement} = this.state;
         selectedElement.addToFilter(linkType);
     }
+}
+
+function changeLinkTypeState(history: CommandHistory, state: LinkTypeVisibility, links: ReadonlyArray<FatLinkType>) {
+    const batch = history.startBatch();
+    const {visible, showLabel} = (
+        state === 'invisible' ? {visible: false, showLabel: false} :
+        state === 'withoutLabels' ? {visible: true, showLabel: false} :
+        state === 'allVisible' ? {visible: true, showLabel: true} :
+        undefined
+    );
+    for (const linkType of links) {
+        history.execute(changeLinkTypeVisibility({linkType, visible, showLabel}));
+    }
+    batch.store();
 }

@@ -3,23 +3,22 @@ import { Component, ReactElement, SVGAttributes, CSSProperties } from 'react';
 
 import { LocalizedString } from '../data/model';
 import {
-    LinkTemplate, LinkStyle, LinkLabel as LinkLabelProperties, LinkMarkerStyle,
-    LinkRouter, RoutedLinks, RoutedLink,
+    LinkTemplate, LinkStyle, LinkLabel as LinkLabelProperties, LinkMarkerStyle, RoutedLink,
 } from '../customization/props';
 import { Debouncer } from '../viewUtils/async';
 import { createStringMap } from '../viewUtils/collections';
 import { EventObserver } from '../viewUtils/events';
 
-import { Element as DiagramElement, Link as DiagramLink, linkMarkerKey } from './elements';
+import { restoreCapturedLinkGeometry } from './commands';
+import { Element as DiagramElement, Link as DiagramLink, LinkVertex, linkMarkerKey, FatLinkType } from './elements';
 import {
-    Vector, computePolyline, computePolylineLength, getPointAlongPolyline,
+    Vector, computePolyline, computePolylineLength, getPointAlongPolyline, computeGrouping,
 } from './geometry';
-import { DefaultLinkRouter } from './linkRouter';
-import { DiagramModel } from './model';
 import { DiagramView, RenderingLayer } from './view';
 
 export interface LinkLayerProps {
     view: DiagramView;
+    links: ReadonlyArray<DiagramLink>;
     group?: string;
 }
 
@@ -40,40 +39,36 @@ export class LinkLayer extends Component<LinkLayerProps, {}> {
     /** List of link IDs to update at the next flush event */
     private scheduledToUpdate = createStringMap<true>();
 
-    private router: LinkRouter;
-    private routings: RoutedLinks;
-
     constructor(props: LinkLayerProps, context: any) {
         super(props, context);
-        this.router = this.props.view.options.linkRouter || new DefaultLinkRouter();
-        this.updateRoutings();
     }
 
     componentDidMount() {
         const {view} = this.props;
 
+        this.listener.listen(view.events, 'changeLanguage', this.scheduleUpdateAll);
         this.listener.listen(view.model.events, 'changeCells', this.scheduleUpdateAll);
-        this.listener.listen(view.model.events, 'elementEvent', ({key, data}) => {
-            if (!(data.changePosition || data.changeSize)) { return; }
-            const element = data[key].source;
-            for (const link of element.links) {
+        this.listener.listen(view.model.events, 'elementEvent', ({data}) => {
+            const elementEvent = data.changePosition || data.changeSize;
+            if (!elementEvent) { return; }
+            for (const link of elementEvent.source.links) {
                 this.scheduleUpdateLink(link.id);
             }
         });
-        this.listener.listen(view.model.events, 'linkEvent', ({key, data}) => {
-            const anyPropertyChanged = (
+        this.listener.listen(view.model.events, 'linkEvent', ({data}) => {
+            const linkEvent = (
                 data.changeData ||
                 data.changeLayoutOnly ||
                 data.changeVertices
             );
-            if (anyPropertyChanged) {
-                const link = data[key].source;
-                this.scheduleUpdateLink(link.id);
+            if (linkEvent) {
+                this.scheduleUpdateLink(linkEvent.source.id);
             }
         });
-        this.listener.listen(view.model.events, 'linkTypeEvent', ({key, data}) => {
-            if (!data.changeLabel) { return; }
-            const linkTypeId = data.changeLabel.source.id;
+        this.listener.listen(view.model.events, 'linkTypeEvent', ({data}) => {
+            const linkTypeEvent = data.changeLabel || data.changeVisibility;
+            if (!linkTypeEvent) { return; }
+            const linkTypeId = linkTypeEvent.source.id;
             for (const link of view.model.linksOfType(linkTypeId)) {
                 this.scheduleUpdateLink(link.id);
             }
@@ -118,42 +113,16 @@ export class LinkLayer extends Component<LinkLayerProps, {}> {
     }
 
     private performUpdate = () => {
-        this.updateRoutings();
         this.forceUpdate();
     }
 
-    private updateRoutings() {
-        this.routings = this.router.route(this.props.view.model);
-    }
-
-    private getNestedGroups = (group: string): {[id: string]: string} => {
-        const {view} = this.props;
-        const groups: {[id: string]: string} = {};
-
-        view.model.elements.forEach(element => {
-            if (element.group !== group) { return; }
-
-            if (!groups[group]) {
-                groups[group] = group;
-            }
-
-            const nestedGroups = this.getNestedGroups(element.id);
-
-            Object.keys(nestedGroups).forEach(nestedGroup =>
-                groups[nestedGroup] = nestedGroup
-            );
-        });
-
-        return groups;
-    }
-
     private getLinks = () => {
-        const {view, group} = this.props;
-        const {links} = view.model;
+        const {view, links, group} = this.props;
 
         if (!group) { return links; }
 
-        const nestedGroups = this.getNestedGroups(group);
+        const grouping = computeGrouping(view.model.elements);
+        const nestedElements = computeDeepNestedElements(grouping, group);
 
         return links.filter(link => {
             const {sourceId, targetId} = link;
@@ -166,7 +135,7 @@ export class LinkLayer extends Component<LinkLayerProps, {}> {
             const sourceGroup = source.group;
             const targetGroup = target.group;
 
-            return nestedGroups[sourceGroup] || nestedGroups[targetGroup];
+            return nestedElements[sourceGroup] || nestedElements[targetGroup];
         });
     }
 
@@ -180,11 +149,28 @@ export class LinkLayer extends Component<LinkLayerProps, {}> {
                     view={view}
                     model={model}
                     shouldUpdate={shouldUpdate(model)}
-                    route={this.routings[model.id]}
+                    route={view.getRouting(model.id)}
                 />
             ))}
         </g>;
     }
+}
+
+function computeDeepNestedElements(grouping: Map<string, DiagramElement[]>, groupId: string): { [id: string]: true } {
+    const deepChildren: { [elementId: string]: true } = {};
+
+    function collectNestedItems(parentId: string) {
+        deepChildren[parentId] = true;
+        const children = grouping.get(parentId);
+        if (!children) { return; }
+        for (const element of children) {
+            if (element.group !== parentId) { continue; }
+            collectNestedItems(element.id);
+        }
+    }
+
+    collectNestedItems(groupId);
+    return deepChildren;
 }
 
 interface LinkViewProps {
@@ -195,9 +181,13 @@ interface LinkViewProps {
 }
 
 const LINK_CLASS = 'ontodia-link';
+const LABEL_GROUPING_PRECISION = 100;
+// temporary, cleared-before-render map to hold line numbers for labels
+// grouped on the same link offset
+const TEMPORARY_LABEL_LINES = new Map<number, number>();
 
 class LinkView extends Component<LinkViewProps, {}> {
-    private templateTypeId: string;
+    private linkType: FatLinkType;
     private template: LinkTemplate;
 
     constructor(props: LinkViewProps, context: any) {
@@ -206,7 +196,7 @@ class LinkView extends Component<LinkViewProps, {}> {
     }
 
     componentWillReceiveProps(nextProps: LinkViewProps) {
-        if (this.templateTypeId !== nextProps.model.typeId) {
+        if (this.linkType.id !== nextProps.model.typeId) {
             this.grabLinkTemplate(nextProps);
         }
     }
@@ -216,14 +206,12 @@ class LinkView extends Component<LinkViewProps, {}> {
     }
 
     private grabLinkTemplate(props: LinkViewProps) {
-        this.templateTypeId = props.model.typeId;
-        const linkType = props.view.model.getLinkType(this.templateTypeId);
-        this.template = props.view.createLinkTemplate(linkType);
+        this.linkType = props.view.model.getLinkType(props.model.typeId);
+        this.template = props.view.createLinkTemplate(this.linkType);
     }
 
     render() {
         const {view, model, route} = this.props;
-        const typeIndex = model.typeIndex;
         const source = view.model.getElement(model.sourceId);
         const target = view.model.getElement(model.targetId);
         if (!(source && target)) {
@@ -236,6 +224,7 @@ class LinkView extends Component<LinkViewProps, {}> {
 
         const path = 'M' + polyline.map(({x, y}) => `${x},${y}`).join(' L');
 
+        const {index: typeIndex, showLabel} = this.linkType;
         const style = this.template.renderLink(model.data);
         const pathAttributes = getPathAttributes(model, style);
 
@@ -245,7 +234,7 @@ class LinkView extends Component<LinkViewProps, {}> {
                     markerStart={`url(#${linkMarkerKey(typeIndex, true)})`}
                     markerEnd={`url(#${linkMarkerKey(typeIndex, false)})`} />
                 <path className={`${LINK_CLASS}__wrap`} d={path} />
-                {this.renderLabels(polyline, style)}
+                {showLabel ? this.renderLabels(polyline, style) : undefined}
                 {this.renderVertices(verticesDefinedByUser, pathAttributes.stroke)}
             </g>
         );
@@ -268,12 +257,22 @@ class LinkView extends Component<LinkViewProps, {}> {
                 <VertexTools key={index * 2 + 1}
                     className={`${LINK_CLASS}__vertex-tools`}
                     model={this.props.model} vertexIndex={index}
-                    vertexRadius={vertexRadius} x={x} y={y} />
+                    vertexRadius={vertexRadius} x={x} y={y}
+                    onRemove={this.onRemoveLinkVertex}
+                />
             );
             index++;
         }
 
         return <g className={`${LINK_CLASS}__vertices`}>{elements}</g>;
+    }
+
+    private onRemoveLinkVertex = (vertex: LinkVertex) => {
+        const model = this.props.view.model;
+        model.history.registerToUndo(
+            restoreCapturedLinkGeometry(vertex.link)
+        );
+        vertex.remove();
     }
 
     private renderLabels(polyline: ReadonlyArray<Vector>, style: LinkStyle) {
@@ -287,13 +286,22 @@ class LinkView extends Component<LinkViewProps, {}> {
         }
 
         const polylineLength = computePolylineLength(polyline);
+        TEMPORARY_LABEL_LINES.clear();
+
         return (
             <g className={`${LINK_CLASS}__labels`}>
                 {labels.map((label, index) => {
                     const {x, y} = getPointAlongPolyline(polyline, polylineLength * label.offset);
+                    const groupKey = Math.round(label.offset * LABEL_GROUPING_PRECISION) / LABEL_GROUPING_PRECISION;
+                    const line = TEMPORARY_LABEL_LINES.get(groupKey) || 0;
+                    TEMPORARY_LABEL_LINES.set(groupKey, line + 1);
                     return (
-                        <LinkLabel key={index} x={x} y={y}
-                            label={label} textAnchor={textAnchor} />
+                        <LinkLabel key={index}
+                            x={x} y={y}
+                            line={line}
+                            label={label}
+                            textAnchor={textAnchor}
+                        />
                     );
                 })}
             </g>
@@ -350,23 +358,27 @@ function getPathAttributes(model: DiagramLink, style: LinkStyle): SVGAttributes<
     return {fill, stroke, strokeWidth, strokeDasharray};
 }
 
-function getLabelTextAttributes(label: LinkLabelProperties): TextAttributes {
+function getLabelTextAttributes(label: LinkLabelProperties): CSSProperties {
     const {
         fill = 'black',
         stroke = 'none',
         'stroke-width': strokeWidth = 0,
+        'font-family': fontFamily = '"Helvetica Neue", "Helvetica", "Arial", sans-serif',
         'font-size': fontSize = 'inherit',
         'font-weight': fontWeight = 'bold',
     } = label.attrs ? label.attrs.text : {};
-    return {fill, stroke, strokeWidth, fontSize, fontWeight};
+    return {
+        fill, stroke, strokeWidth, fontFamily, fontSize,
+        fontWeight: fontWeight as CSSProperties['fontWeight'],
+    };
 }
 
-function getLabelRectAttributes(label: LinkLabelProperties): RectAttributes {
+function getLabelRectAttributes(label: LinkLabelProperties): CSSProperties {
     const {
         fill = 'white',
         stroke = 'none',
         'stroke-width': strokeWidth = 0,
-    } = label.attrs ? label.attrs.rect : {};
+    } = label.attrs && label.attrs.rect ? label.attrs.rect : {};
     return {fill, stroke, strokeWidth};
 }
 
@@ -374,28 +386,15 @@ interface LabelAttributes {
     offset: number;
     text: LocalizedString;
     attributes: {
-        text: TextAttributes;
-        rect: RectAttributes;
+        text: CSSProperties;
+        rect: CSSProperties;
     };
-}
-
-interface TextAttributes {
-    stroke?: string;
-    strokeWidth?: number;
-    fill?: string;
-    fontSize?: string | number;
-    fontWeight?: 'normal' | 'bold' | 'lighter' | 'bolder' | number;
-}
-
-interface RectAttributes {
-    fill?: string;
-    stroke?: string;
-    strokeWidth?: number;
 }
 
 interface LinkLabelProps {
     x: number;
     y: number;
+    line: number;
     label: LabelAttributes;
     textAnchor: 'start' | 'middle' | 'end';
 }
@@ -404,6 +403,8 @@ interface LinkLabelState {
     readonly width?: number;
     readonly height?: number;
 }
+
+const GROUPED_LABEL_MARGIN = 2;
 
 class LinkLabel extends Component<LinkLabelProps, LinkLabelState> {
     private text: SVGTextElement | undefined;
@@ -415,7 +416,7 @@ class LinkLabel extends Component<LinkLabelProps, LinkLabelState> {
     }
 
     render() {
-        const {x, y, label, textAnchor} = this.props;
+        const {x, y, label, textAnchor, line} = this.props;
         const {width, height} = this.state;
 
         const rectPosition = {x, y: y - height / 2};
@@ -425,11 +426,13 @@ class LinkLabel extends Component<LinkLabelProps, LinkLabelState> {
             rectPosition.x -= width;
         }
 
+        const transform = line === 0 ? undefined :
+            `translate(0, ${line * (height + GROUPED_LABEL_MARGIN)}px)`;
         // HACK: 'alignment-baseline' and 'dominant-baseline' are not supported in Edge and IE
         const dy = '0.6ex';
 
         return (
-          <g>
+          <g style={transform ? {transform} : undefined}>
               <rect x={rectPosition.x} y={rectPosition.y}
                   width={width} height={height}
                   style={label.attributes.rect}
@@ -479,10 +482,11 @@ class VertexTools extends Component<{
     vertexRadius: number;
     x: number;
     y: number;
+    onRemove: (vertex: LinkVertex) => void;
 }, {}> {
     render() {
         const {className, vertexIndex, vertexRadius, x, y} = this.props;
-        let transform = `translate(${x + 2 * vertexRadius},${y - 2 * vertexRadius})scale(${vertexRadius})`;
+        const transform = `translate(${x + 2 * vertexRadius},${y - 2 * vertexRadius})scale(${vertexRadius})`;
         return (
             <g className={className} transform={transform} onMouseDown={this.onRemoveVertex}>
                 <title>Remove vertex</title>
@@ -496,10 +500,8 @@ class VertexTools extends Component<{
         if (e.button !== 0 /* left button */) { return; }
         e.preventDefault();
         e.stopPropagation();
-        const {model, vertexIndex} = this.props;
-        const vertices = [...model.vertices];
-        vertices.splice(vertexIndex, 1);
-        model.setVertices(vertices);
+        const {onRemove, model, vertexIndex} = this.props;
+        onRemove(new LinkVertex(model, vertexIndex));
     }
 }
 
@@ -509,15 +511,13 @@ export class LinkMarkers extends Component<{ view: DiagramView }, {}> {
 
     render() {
         const {view} = this.props;
-        const templates = view.getLinkTemplates();
         const markers: Array<ReactElement<LinkMarkerProps>> = [];
 
-        for (const linkTypeId in templates) {
-            if (!templates.hasOwnProperty(linkTypeId)) { continue; }
+        view.getLinkTemplates().forEach((template, linkTypeId) => {
+            const type = view.model.getLinkType(linkTypeId);
+            if (!type) { return; }
 
-            const typeIndex = view.model.getLinkType(linkTypeId).index;
-            const template = templates[linkTypeId];
-
+            const typeIndex = type.index;
             if (template.markerSource) {
                 markers.push(
                     <LinkMarker key={typeIndex * 2}
@@ -536,7 +536,7 @@ export class LinkMarkers extends Component<{ view: DiagramView }, {}> {
                     />
                 );
             }
-        }
+        });
 
         return <defs>{markers}</defs>;
     }
@@ -589,7 +589,7 @@ class LinkMarker extends Component<LinkMarkerProps, {}> {
         marker.setAttribute('markerHeight', style.height.toString());
         marker.setAttribute('orient', 'auto');
 
-        let xOffset = isStartMarker ? 0 : (style.width - 1);
+        const xOffset = isStartMarker ? 0 : (style.width - 1);
         marker.setAttribute('refX', xOffset.toString());
         marker.setAttribute('refY', (style.height / 2).toString());
         marker.setAttribute('markerUnits', 'userSpaceOnUse');

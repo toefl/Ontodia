@@ -1,5 +1,4 @@
-import { Dictionary, ElementModel, LinkModel } from '../data/model';
-import { generate64BitID } from '../data/utils';
+import { Dictionary, ElementModel, LinkModel, ElementTypeIri, LinkTypeIri, PropertyTypeIri } from '../data/model';
 import { OrderedMap, createStringMap } from '../viewUtils/collections';
 import { EventSource, Events, AnyEvent, AnyListener } from '../viewUtils/events';
 
@@ -12,7 +11,7 @@ import {
 } from './elements';
 
 export interface GraphEvents {
-    changeCells: { source: Graph };
+    changeCells: {};
     elementEvent: AnyEvent<ElementEvents>;
     linkEvent: AnyEvent<LinkEvents>;
     linkTypeEvent: AnyEvent<FatLinkTypeEvents>;
@@ -39,10 +38,10 @@ export class Graph {
         return this.links.get(linkId);
     }
 
-    findLink(linkModel: LinkModel): DiagramLink | undefined {
-        const source = this.getElement(linkModel.sourceId);
+    findLink(linkTypeId: LinkTypeIri, sourceId: string, targetId: string): DiagramLink | undefined {
+        const source = this.getElement(sourceId);
         if (!source) { return undefined; }
-        const index = findLinkIndex(source.links, linkModel);
+        const index = findLinkIndex(source.links, linkTypeId, sourceId, targetId);
         return index >= 0 ? source.links[index] : undefined;
     }
 
@@ -64,7 +63,7 @@ export class Graph {
         }
         element.events.onAny(this.onElementEvent);
         this.elements.push(element.id, element);
-        this.source.trigger('changeCells', {source: this});
+        this.source.trigger('changeCells', {});
     }
 
     private onElementEvent: AnyListener<ElementEvents> = (data, key) => {
@@ -72,53 +71,32 @@ export class Graph {
     }
 
     removeElement(elementId: string): void {
-        const element = this.elements.delete(elementId);
+        const element = this.elements.get(elementId);
         if (element) {
             const options = {silent: true};
-            for (const link of element.links) {
+            // clone links to prevent modifications during iteration
+            for (const link of [...element.links]) {
                 this.removeLink(link.id, options);
             }
+            this.elements.delete(elementId);
             element.events.offAny(this.onElementEvent);
-            this.source.trigger('changeCells', {source: this});
+            this.source.trigger('changeCells', {});
         }
     }
 
-    createLink(params: {
-        data: LinkModel;
-        linkType: FatLinkType;
-        suggestedId?: string;
-        vertices?: Array<{ x: number; y: number; }>;
-    }): DiagramLink | undefined {
-        const {data, linkType, suggestedId, vertices} = params;
-
-        const existingLink = this.findLink(data);
-        if (existingLink) {
-            existingLink.setLayoutOnly(false);
-            return existingLink;
+    addLink(link: DiagramLink): void {
+        if (this.getLink(link.id)) {
+            throw new Error(`Link '${link.id}' already exists.`);
         }
-
-        const shouldBeVisible = linkType.visible
-            && this.getElement(data.sourceId)
-            && this.getElement(data.targetId);
-
-        if (!shouldBeVisible) {
-            return undefined;
+        const linkType = this.getLinkType(link.typeId);
+        if (!linkType) {
+            throw new Error(`Link type '${link.typeId}' not found.`);
         }
-
-        const suggestedIdAvailable = Boolean(suggestedId && !this.links.get(suggestedId));
-        const newLinkId = suggestedIdAvailable ? suggestedId : `link_${generate64BitID()}`;
-
-        const link = new DiagramLink({id: newLinkId, data, vertices});
-        this.registerLink(link, linkType);
-        return link;
+        this.registerLink(link);
     }
 
-    private registerLink(link: DiagramLink, linkType: FatLinkType) {
+    private registerLink(link: DiagramLink) {
         const {typeId} = link;
-
-        if (link.typeIndex === undefined) {
-            link.typeIndex = linkType.index;
-        }
 
         this.sourceOf(link).links.push(link);
         if (link.sourceId !== link.targetId) {
@@ -127,7 +105,7 @@ export class Graph {
 
         link.events.onAny(this.onLinkEvent);
         this.links.push(link.id, link);
-        this.source.trigger('changeCells', {source: this});
+        this.source.trigger('changeCells', {});
     }
 
     private onLinkEvent: AnyListener<LinkEvents> = (data, key) => {
@@ -139,19 +117,22 @@ export class Graph {
         if (link) {
             const {typeId, sourceId, targetId} = link;
             link.events.offAny(this.onLinkEvent);
-            this.removeLinkReferences({linkTypeId: typeId, sourceId, targetId});
+            this.removeLinkReferences(typeId, sourceId, targetId);
             if (!(options && options.silent)) {
-                this.source.trigger('changeCells', {source: this});
+                this.source.trigger('changeCells', {});
             }
         }
     }
 
-    private removeLinkReferences(linkModel: LinkModel) {
-        const source = this.getElement(linkModel.sourceId);
-        removeLinkFrom(source && source.links, linkModel);
-
-        const target = this.getElement(linkModel.targetId);
-        removeLinkFrom(target && target.links, linkModel);
+    private removeLinkReferences(linkTypeId: LinkTypeIri, sourceId: string, targetId: string) {
+        const source = this.getElement(sourceId);
+        if (source) {
+            removeLinkFrom(source.links, linkTypeId, sourceId, targetId);
+        }
+        const target = this.getElement(targetId);
+        if (target) {
+            removeLinkFrom(target.links, linkTypeId, sourceId, targetId);
+        }
     }
 
     getLinkTypes(): FatLinkType[] {
@@ -163,7 +144,7 @@ export class Graph {
         return result;
     }
 
-    getLinkType(linkTypeId: string): FatLinkType | undefined {
+    getLinkType(linkTypeId: LinkTypeIri): FatLinkType | undefined {
         return this.linkTypes[linkTypeId];
     }
 
@@ -180,7 +161,7 @@ export class Graph {
         this.source.trigger('linkTypeEvent', {key, data});
     }
 
-    getProperty(propertyId: string): RichProperty | undefined {
+    getProperty(propertyId: PropertyTypeIri): RichProperty | undefined {
         return this.propertiesById[propertyId];
     }
 
@@ -191,7 +172,7 @@ export class Graph {
         this.propertiesById[property.id] = property;
     }
 
-    getClass(classId: string): FatClassModel | undefined {
+    getClass(classId: ElementTypeIri): FatClassModel | undefined {
         return this.classesById[classId];
     }
 
@@ -206,7 +187,7 @@ export class Graph {
 
     addClass(classModel: FatClassModel): void {
         if (this.getClass(classModel.id)) {
-            throw new Error(`Class '${classModel.id}' already exists.`);
+            return; // throw new Error(`Class '${classModel.id}' already exists.`);
         }
         classModel.events.onAny(this.onClassEvent);
         this.classesById[classModel.id] = classModel;
@@ -217,16 +198,16 @@ export class Graph {
     }
 }
 
-function removeLinkFrom(links: DiagramLink[], model: LinkModel) {
+function removeLinkFrom(links: DiagramLink[], linkTypeId: LinkTypeIri, sourceId: string, targetId: string) {
     if (!links) { return; }
-    const index = findLinkIndex(links, model);
-    if (index >= 0) {
+    while (true) {
+        const index = findLinkIndex(links, linkTypeId, sourceId, targetId);
+        if (index < 0) { break; }
         links.splice(index, 1);
     }
 }
 
-function findLinkIndex(haystack: DiagramLink[], needle: LinkModel) {
-    const {sourceId, targetId, linkTypeId} = needle;
+function findLinkIndex(haystack: DiagramLink[], linkTypeId: LinkTypeIri, sourceId: string, targetId: string) {
     for (let i = 0; i < haystack.length; i++) {
         const link = haystack[i];
         if (link.sourceId === sourceId &&

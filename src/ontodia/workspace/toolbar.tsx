@@ -3,8 +3,12 @@ import * as React from 'react';
 import { WorkspaceLanguage } from './workspace';
 
 export interface ToolbarProps {
+    canSaveDiagram?: boolean;
     onSaveDiagram?: () => void;
+    canPersistChanges?: boolean;
+    onPersistChanges?: () => void;
     onForceLayout?: () => void;
+    onClearAll?: () => void;
     onZoomIn?: () => void;
     onZoomOut?: () => void;
     onZoomToFit?: () => void;
@@ -24,9 +28,7 @@ export interface ToolbarProps {
 
 const CLASS_NAME = 'ontodia-toolbar';
 
-export class DefaultToolbar extends React.Component<ToolbarProps, void> {
-    private downloadImageLink: HTMLAnchorElement;
-
+export class DefaultToolbar extends React.Component<ToolbarProps, {}> {
     private onChangeLanguage = (event: React.SyntheticEvent<HTMLSelectElement>) => {
         const value = event.currentTarget.value;
         this.props.onChangeLanguage(value);
@@ -40,18 +42,29 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
         this.props.onExportPNG();
     }
 
-    private renderBtnSaveDiagram = () => {
+    private renderSaveDiagramButton() {
         if (!this.props.onSaveDiagram) { return null; }
-
         return (
             <button type='button' className='saveDiagramButton ontodia-btn ontodia-btn-primary'
-                    onClick={this.props.onSaveDiagram}>
+                disabled={this.props.canSaveDiagram === false}
+                onClick={this.props.onSaveDiagram}>
                 <span className='fa fa-floppy-o' aria-hidden='true' /> Save diagram
             </button>
         );
     }
 
-    private renderBtnHelp = () => {
+    private renderPersistAuthoredChangesButton() {
+        if (!this.props.onPersistChanges) { return null; }
+        return (
+            <button type='button' className='saveDiagramButton ontodia-btn ontodia-btn-success'
+                disabled={this.props.canPersistChanges === false}
+                onClick={this.props.onPersistChanges}>
+                <span className='fa fa-floppy-o' aria-hidden='true' /> Save data
+            </button>
+        );
+    }
+
+    private renderHelpButton() {
         if (this.props.hidePanels) { return null; }
 
         return (
@@ -62,9 +75,8 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
         );
     }
 
-    private renderLanguages = () => {
+    private renderLanguages() {
         const {selectedLanguage, languages} = this.props;
-
         if (languages.length <= 1) { return null; }
 
         return (
@@ -77,19 +89,11 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
         );
     }
 
-    private renderButtonsTogglePanels = () => {
-        const {
-            hidePanels,
-            isLeftPanelOpen,
-            onLeftPanelToggle,
-            isRightPanelOpen,
-            onRightPanelToggle
-        } = this.props;
-
+    private renderButtonsTogglePanels() {
+        const {hidePanels, isLeftPanelOpen, onLeftPanelToggle, isRightPanelOpen, onRightPanelToggle} = this.props;
         if (hidePanels) { return null; }
 
         const className = `ontodia-btn ontodia-btn-default ${CLASS_NAME}__toggle`;
-
         return (
             <div className='ontodia-btn-group ontodia-btn-group-sm'>
                 <button type='button'
@@ -113,8 +117,15 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
         return (
             <div className={CLASS_NAME}>
                 <div className='ontodia-btn-group ontodia-btn-group-sm'
-                     data-position='bottom' data-step='6' data-intro={intro}>
-                    {this.renderBtnSaveDiagram()}
+                    data-position='bottom' data-step='6' data-intro={intro}>
+                    {this.renderSaveDiagramButton()}
+                    {this.renderPersistAuthoredChangesButton()}
+                    {this.props.onClearAll ? (
+                        <button type='button' className='ontodia-btn ontodia-btn-default'
+                            title='Clear All' onClick={this.props.onClearAll}>
+                            <span className='fa fa-trash' aria-hidden='true'/>&nbsp;Clear All
+                        </button>
+                    ) : null}
                     <button type='button' className='ontodia-btn ontodia-btn-default'
                             title='Force layout' onClick={this.props.onForceLayout}>
                         <span className='fa fa-sitemap' aria-hidden='true'/> Layout
@@ -144,11 +155,9 @@ export class DefaultToolbar extends React.Component<ToolbarProps, void> {
                         <span className='fa fa-print' aria-hidden='true'/>
                     </button>
                     {this.renderLanguages()}
-                    {this.renderBtnHelp()}
+                    {this.renderHelpButton()}
                 </div>
                 {this.renderButtonsTogglePanels()}
-                <a href='#' ref={link => { this.downloadImageLink = link; }}
-                   style={{display: 'none', visibility: 'collapse'}}/>
             </div>
         );
     }

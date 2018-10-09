@@ -88,6 +88,11 @@ export interface SparqlDataProviderSettings {
      * linkTypeOf query, refElement* queries, linkInfos query.
      */
     linkConfigurations: LinkConfiguration[];
+
+    /**
+     * Abstract property configuration similar to abstract link configuration. Not type-specific yet.
+     */
+    propertyConfigurations: PropertyConfiguration[];
 }
 
 /**
@@ -114,21 +119,52 @@ export interface FullTextSearchSettings {
     extractLabel?: boolean;
 }
 
+/**
+ * Link abstraction configuration.
+ */
 export interface LinkConfiguration {
+    /**
+     * IRI of the "virtual" link
+     */
     id: string;
-    inverseId: string;
+    /**
+     * IRI of the inverse
+     */
+    inverseId?: string;
+    /**
+     * Sparql pattern connecting $source to $target. It's required to use those specific variables.
+     */
     path: string;
+    /**
+     * Additional sparql patterns can be used for getting properties of the link. (propValue propType should be bound)
+     */
     properties?: string;
+}
+
+/**
+ * Specifies property abstraction configuration
+ */
+export interface PropertyConfiguration {
+    /**
+     * IRI of the "virtual" link
+     */
+    id: string;
+
+    /**
+     * Sparql pattern connecting $subject to $value. It's required to use those specific variables.
+     */
+    path: string;
 }
 
 export const RDFSettings: SparqlDataProviderSettings = {
     linkConfigurations: [],
+    propertyConfigurations: [],
 
     linksInfoQuery: `SELECT ?source ?type ?target
             WHERE {
                 ?source ?type ?target.
                 VALUES (?source) {\${ids}}
-                VALUES (?target) {\${ids}}                
+                VALUES (?target) {\${ids}}
             }`,
 
     defaultPrefix: '',
@@ -163,7 +199,6 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
  PREFIX wdt: <http://www.wikidata.org/prop/direct/>
  PREFIX wd: <http://www.wikidata.org/entity/>
  PREFIX owl:  <http://www.w3.org/2002/07/owl#>
-
 `,
 
     schemaLabelProperty: 'rdfs:label',
@@ -171,8 +206,8 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
 
     fullTextSearch: {
         prefix: 'PREFIX bds: <http://www.bigdata.com/rdf/search#>' + '\n',
-        queryPattern: ` 
-              ?inst rdfs:label ?searchLabel. 
+        queryPattern: `
+              ?inst rdfs:label ?searchLabel.
               SERVICE bds:search {
                      ?searchLabel bds:search "\${text}*" ;
                                   bds:minRelevance '0.5' ;
@@ -186,12 +221,12 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
 
     classTreeQuery: `
             SELECT distinct ?class ?label ?parent WHERE {
-              ?class rdfs:label ?label.                            
+              ?class rdfs:label ?label.
               { ?class wdt:P279 wd:Q35120. }
-                UNION 
+                UNION
               { ?parent wdt:P279 wd:Q35120.
                 ?class wdt:P279 ?parent. }
-                UNION 
+                UNION
               { ?parent wdt:P279/wdt:P279 wd:Q35120.
                 ?class wdt:P279 ?parent. }
             }
@@ -210,12 +245,7 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
         } WHERE {
             VALUES (?inst) {\${ids}}
             OPTIONAL {
-                {
-                    ?inst wdt:P31 ?class .
-                } UNION {
-                    ?inst wdt:P31 ?realClass .
-                    ?realClass wdt:P279 | wdt:P279/wdt:P279 ?class .
-                }
+                ?inst wdt:P31 ?class .
             }
             OPTIONAL {?inst rdfs:label ?label}
             OPTIONAL {
@@ -235,28 +265,34 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
             } UNION {
                 ?inObject ?link \${elementIri}
             }
-            FILTER regex(STR(?link), "direct")
+            ?claim <http://wikiba.se/ontology#directClaim> ?link .
         }
     `,
     linkTypesStatisticsQuery: `
-        SELECT ?link ?outCount ?inCount
+        SELECT (\${linkId} as ?link) (COUNT(?outObject) AS ?outCount) (COUNT(?inObject) AS ?inCount)
         WHERE {
-            { 
-                SELECT (\${linkId} as ?link) (count(?outObject) as ?outCount) WHERE {
-                    \${elementIri} \${linkId} ?outObject
-                    FILTER ISIRI(?outObject)
-                    FILTER EXISTS { ?outObject ?someprop ?someobj }
-                } LIMIT 101
-            } {
-                SELECT (\${linkId} as ?link) (count(?inObject) as ?inCount) WHERE {
-                    ?inObject \${linkId} \${elementIri}
-                    FILTER ISIRI(?inObject)
-                    FILTER EXISTS { ?inObject ?someprop ?someobj }
-                } LIMIT 101
-            } 
+            {
+                {
+                    SELECT DISTINCT ?outObject WHERE {
+                        \${elementIri} \${linkId} ?outObject.
+                        FILTER(ISIRI(?outObject))
+                        ?outObject ?someprop ?someobj.
+                    }
+                    LIMIT 101
+                }
+            } UNION {
+                {
+                    SELECT DISTINCT ?inObject WHERE {
+                        ?inObject \${linkId} \${elementIri}.
+                        FILTER(ISIRI(?inObject))
+                        ?inObject ?someprop ?someobj.
+                    }
+                    LIMIT 101
+                }
+            }
         }
     `,
-    filterRefElementLinkPattern: 'FILTER regex(STR(?link), "direct")',
+    filterRefElementLinkPattern: '?claim <http://wikiba.se/ontology#directClaim> ?link .',
     filterTypePattern: `?inst wdt:P31 ?instType. ?instType wdt:P279* \${elementTypeIri} . ${'\n'}`,
     filterAdditionalRestriction: `FILTER ISIRI(?inst)
                         BIND(STR(?inst) as ?strInst)
@@ -275,7 +311,7 @@ export const OWLRDFSSettingsOverride: Partial<SparqlDataProviderSettings> = {
     defaultPrefix:
         `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
  PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
- PREFIX owl:  <http://www.w3.org/2002/07/owl#> 
+ PREFIX owl:  <http://www.w3.org/2002/07/owl#>
 `,
     schemaLabelProperty: 'rdfs:label',
     dataLabelProperty: 'rdfs:label',
@@ -327,14 +363,14 @@ export const OWLRDFSSettingsOverride: Partial<SparqlDataProviderSettings> = {
         SELECT DISTINCT ?link
         WHERE {
             { \${elementIri} ?link ?outObject }
-            UNION 
+            UNION
             { ?inObject ?link \${elementIri} }
         }
     `,
     linkTypesStatisticsQuery: `
         SELECT ?link ?outCount ?inCount
         WHERE {
-            { 
+            {
                 SELECT (\${linkId} as ?link) (count(?outObject) as ?outCount) WHERE {
                     \${elementIri} \${linkId} ?outObject.
                     \${navigateElementFilterOut}
@@ -344,7 +380,7 @@ export const OWLRDFSSettingsOverride: Partial<SparqlDataProviderSettings> = {
                     ?inObject \${linkId} \${elementIri}.
                     \${navigateElementFilterIn}
                 } LIMIT 101
-            } 
+            }
         }
     `,
     filterRefElementLinkPattern: '',
@@ -381,7 +417,7 @@ export const OWLStatsSettings: SparqlDataProviderSettings = {...OWLRDFSSettings,
 const DBPediaOverride: Partial<SparqlDataProviderSettings> = {
     fullTextSearch: {
         prefix: 'PREFIX dbo: <http://dbpedia.org/ontology/>\n',
-        queryPattern: ` 
+        queryPattern: `
               ?inst rdfs:label ?searchLabel.
               ?searchLabel bif:contains "\${text}".
               ?inst dbo:wikiPageID ?origScore .
@@ -391,7 +427,7 @@ const DBPediaOverride: Partial<SparqlDataProviderSettings> = {
 
     classTreeQuery: `
         SELECT distinct ?class ?label ?parent WHERE {
-            ?class rdfs:label ?label.                            
+            ?class rdfs:label ?label.
             OPTIONAL {?class rdfs:subClassOf ?parent}
             ?root rdfs:subClassOf owl:Thing.
             ?class rdfs:subClassOf? | rdfs:subClassOf/rdfs:subClassOf ?root
@@ -405,7 +441,7 @@ const DBPediaOverride: Partial<SparqlDataProviderSettings> = {
             ?inst ?propType ?propValue.
         } WHERE {
             VALUES (?inst) {\${ids}}
-            ?inst rdf:type ?class . 
+            ?inst rdf:type ?class .
             ?inst rdfs:label ?label .
             FILTER (!contains(str(?class), 'http://dbpedia.org/class/yago'))
             OPTIONAL {?inst ?propType ?propValue.

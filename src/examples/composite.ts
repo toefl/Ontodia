@@ -7,22 +7,20 @@ import {
     RDFDataProvider,
     CompositeDataProvider,
     SparqlDataProvider,
-    OWLStatsSettings,
     SparqlQueryMethod,
-    DBPediaSettings,
     WikidataSettings,
     LinkModel,
  } from '../index';
 
- const N3Parser: any = require('rdf-parser-n3');
- const RdfXmlParser: any = require('rdf-parser-rdfxml');
- const JsonLdParser: any = require('rdf-parser-jsonld');
+const N3Parser: any = require('rdf-parser-n3');
+const RdfXmlParser: any = require('rdf-parser-rdfxml');
+const JsonLdParser: any = require('rdf-parser-jsonld');
 
-import {onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage} from './common';
-import {LinkBinding} from '../ontodia/data/sparql/sparqlModels';
-import {getLinksInfo} from '../ontodia/data/sparql/responseHandler';
+import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
+import { LinkBinding } from '../ontodia/data/sparql/sparqlModels';
+import { getLinksInfo } from '../ontodia/data/sparql/responseHandler';
 
-const data = require<string>('raw-loader!./resources/testData.ttl');
+const data = require<string>('./resources/testData.ttl');
 
 class TransformingDataProvider extends SparqlDataProvider {
 
@@ -38,9 +36,9 @@ class TransformingDataProvider extends SparqlDataProvider {
             refQueryPart += !params.direction || params.direction === 'out' ? `
                 { ${refElementIRI} ${refElementLinkIRI} ?inst . FILTER ISIRI(?inst)}
                 UNION
-                { ${refElementIRI} ${refElementLinkIRI} ?literalId.                     
+                { ${refElementIRI} ${refElementLinkIRI} ?literalId.
     		        ?property <http://wikiba.se/ontology#directClaim> ${refElementLinkIRI}.
-    		        ?property wdt:P1630|wdt:P1921 ?template.  	  	
+    		        ?property wdt:P1630|wdt:P1921 ?template.
                     BIND(IRI(REPLACE(?template, "\\\\$1", ?literalId)) as ?inst)
                 }
                 ` : '';
@@ -55,9 +53,9 @@ class TransformingDataProvider extends SparqlDataProvider {
             refQueryPart += !params.direction || params.direction === 'out' ? `
                 { ${refElementIRI} ?link ?inst . FILTER ISIRI(?inst)}
                 UNION
-                { ${refElementIRI} ?link ?literalId.                     
+                { ${refElementIRI} ?link ?literalId.
     		        ?property <http://wikiba.se/ontology#directClaim> ?link.
-    		        ?property wdt:P1630|wdt:P1921 ?template.  	  	
+    		        ?property wdt:P1630|wdt:P1921 ?template.
                     BIND(IRI(REPLACE(?template, "\\\\$1", ?literalId)) as ?inst)
                 }
                 ` : '';
@@ -83,14 +81,14 @@ class TransformingDataProvider extends SparqlDataProvider {
                 {?source ?type ?target.}
                 UNION
                 {
-                    ?source ?type ?literalId. 
-                    FILTER(ISLITERAL(?literalId))                    
+                    ?source ?type ?literalId.
+                    FILTER(ISLITERAL(?literalId))
     		        ?property <http://wikiba.se/ontology#directClaim> ?type.
-    		        ?property wdt:P1630|wdt:P1921 ?template.  	  	
+    		        ?property wdt:P1630|wdt:P1921 ?template.
                     BIND(IRI(REPLACE(?template, "\\\\$1", ?literalId)) as ?createdTarget)
                     BIND(?createdTarget as ?target)
                     FILTER (BOUND(?createdTarget))
-                }                                
+                }
             }
         `;
         return this.executeSparqlQuery<LinkBinding>(query).then(getLinksInfo);
@@ -102,10 +100,7 @@ function onWorkspaceMounted(workspace: Workspace) {
 
     const rdfDataProvider = new RDFDataProvider({
         data: [
-            {
-                content: data,
-                type: 'text/turtle',
-            },
+            {content: data, type: 'text/turtle'},
         ],
         dataFetching: true,
         parsers: {
@@ -116,59 +111,76 @@ function onWorkspaceMounted(workspace: Workspace) {
     });
 
     const sparqlDataProvider = new TransformingDataProvider({
-        endpointUrl: '/sparql-endpoint',
+        endpointUrl: '/wikidata',
         imagePropertyUris: [
             'http://www.wikidata.org/prop/direct/P18',
             'http://www.wikidata.org/prop/direct/P154',
         ],
         queryMethod: SparqlQueryMethod.POST,
     }, {...WikidataSettings, ...{
-        linkTypesOfQuery: `
-        SELECT ?link (count(distinct ?outObject) as ?outCount) (count(distinct ?inObject) as ?inCount)
+        linkTypesOfQuery: `SELECT DISTINCT ?link
         WHERE {
-            
-            { \${elementIri} ?link ?outObject .
-              # this is to prevent some junk appear on diagram,
-              # but can really slow down execution on complex objects
-              FILTER ISIRI(?outObject)
-              FILTER EXISTS { ?outObject ?someprop ?someobj }
-            }
-            UNION
-            { ?inObject ?link \${elementIri} .
-              FILTER ISIRI(?inObject)
-              FILTER EXISTS { ?inObject ?someprop ?someobj }
-            }
-            UNION 
             {
-              $\{elementIri} ?link ?outObject.
-              ?property <http://wikiba.se/ontology#directClaim> ?link.
+                \${elementIri} ?link ?outObject
+                # this is to prevent some junk appear on diagram,
+                # but can really slow down execution on complex objects
+                #FILTER ISIRI(?outObject)
+                #FILTER EXISTS { ?outObject ?someprop ?someobj }
+            } UNION {
+                ?inObject ?link \${elementIri}
+                #FILTER ISIRI(?inObject)
+                #FILTER EXISTS { ?inObject ?someprop ?someobj }
+            } UNION {
+                $\{elementIri} ?link ?outObject.
+                ?property <http://wikiba.se/ontology#directClaim> ?link.
             }
             FILTER regex(STR(?link), "direct")
-        } GROUP BY ?link
-    `,
+        }`,
+        linkTypesStatisticsQuery: `SELECT ?link ?outCount ?inCount
+        WHERE {
+            {{
+                SELECT (\${linkId} as ?link) (count(?outObject) as ?outCount) WHERE {
+                    \${elementIri} \${linkId} ?outObject
+                    FILTER ISIRI(?outObject)
+                    FILTER EXISTS { ?outObject ?someprop ?someobj }
+                } LIMIT 101
+            } {
+                SELECT (\${linkId} as ?link) (count(?inObject) as ?inCount) WHERE {
+                    ?inObject \${linkId} \${elementIri}
+                    FILTER ISIRI(?inObject)
+                    FILTER EXISTS { ?inObject ?someprop ?someobj }
+                } LIMIT 101
+            }} UNION {
+                SELECT (\${linkId} as ?link) (count(?outObject) as ?outCount) (0 as ?inCount) WHERE {
+                    $\{elementIri} \${linkId} ?outObject.
+                    ?property <http://wikiba.se/ontology#directClaim> \${linkId}.
+                } LIMIT 101
+            }
+        }`,
         filterAdditionalRestriction: `FILTER ISIRI(?inst)
                         BIND(STR(?inst) as ?strInst)
 `,
     }});
 
-    const layoutData = tryLoadLayoutFromLocalStorage();
+    const diagram = tryLoadLayoutFromLocalStorage();
     workspace.getModel().importLayout({
-        layoutData,
+        diagram,
         validateLinks: true,
-        dataProvider: new CompositeDataProvider([
-            { name: 'SparQL Data Provider', dataProvider: sparqlDataProvider },
-            { name: 'RDF Data Provider', dataProvider: rdfDataProvider },
-        ], {
-            mergeMode: 'sequentialFetching',
-        }),
+        dataProvider: new CompositeDataProvider(
+            [
+                {name: 'SPARQL Provider', dataProvider: sparqlDataProvider},
+                {name: 'RDF Provider', dataProvider: rdfDataProvider},
+            ],
+            {mergeMode: 'sequentialFetching'}
+        ),
     });
 }
 
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
     ref: onWorkspaceMounted,
     onSaveDiagram: workspace => {
-        const {layoutData} = workspace.getModel().exportLayout();
-        window.location.hash = saveLayoutToLocalStorage(layoutData);
+        const diagram = workspace.getModel().exportLayout();
+        window.location.hash = saveLayoutToLocalStorage(diagram);
         window.location.reload();
     },
     viewOptions: {

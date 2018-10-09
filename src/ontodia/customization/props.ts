@@ -1,7 +1,7 @@
 import { ComponentClass } from 'react';
 import { DiagramModel } from '../diagram/model';
 
-import { Dictionary, LinkModel, LocalizedString, Property } from '../data/model';
+import { ElementIri, ElementModel, Dictionary, LinkModel, LocalizedString, Property } from '../data/model';
 
 export type TypeStyleResolver = (types: string[]) => CustomTypeStyle | undefined;
 export type LinkTemplateResolver = (linkType: string) => LinkTemplate | undefined;
@@ -15,11 +15,13 @@ export interface CustomTypeStyle {
 export type ElementTemplate = ComponentClass<TemplateProps>;
 
 export interface TemplateProps {
+    elementId: string;
+    data: ElementModel;
+    iri: ElementIri;
     types: string;
     label: string;
     color: any;
-    icon: string;
-    iri: string;
+    iconUrl: string;
     imgUrl?: string;
     isExpanded?: boolean;
     propsAsList?: PropArray;
@@ -47,7 +49,7 @@ export interface LinkStyle {
     };
     label?: LinkLabel;
     properties?: LinkLabel[];
-    connector?: { name?: string; args?: {}; };
+    connector?: { name?: string; args?: {} };
 }
 
 export interface LinkRouter {
@@ -90,6 +92,7 @@ export interface LinkLabel {
             fill?: string;
             stroke?: string;
             'stroke-width'?: number;
+            'font-family'?: string;
             'font-size'?: string | number;
             'font-weight'?: 'normal' | 'bold' | 'lighter' | 'bolder' | number;
             text?: LocalizedString[];

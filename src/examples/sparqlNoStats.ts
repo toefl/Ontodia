@@ -1,32 +1,32 @@
 import { createElement, ClassAttributes } from 'react';
 import * as ReactDOM from 'react-dom';
 
-import {Workspace, WorkspaceProps, SparqlDataProvider, OWLRDFSSettings, SparqlQueryMethod} from '../index';
+import { Workspace, WorkspaceProps, SparqlDataProvider, OWLRDFSSettings } from '../index';
 
 import { onPageLoad, tryLoadLayoutFromLocalStorage, saveLayoutToLocalStorage } from './common';
 
 function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
-    const layoutData = tryLoadLayoutFromLocalStorage();
+    const diagram = tryLoadLayoutFromLocalStorage();
     workspace.getModel().importLayout({
-        layoutData,
+        diagram,
         validateLinks: true,
         dataProvider: new SparqlDataProvider({
-            endpointUrl: '/sparql-endpoint',
+            endpointUrl: '/sparql',
             imagePropertyUris: [
                 'http://xmlns.com/foaf/0.1/img',
             ],
             // queryMethod: SparqlQueryMethod.POST
         }, {...OWLRDFSSettings, ...{
-            ftsSettings: {
-                ftsPrefix: 'PREFIX bds: <http://www.bigdata.com/rdf/search#>' + '\n',
-                ftsQueryPattern: ` 
-              ?inst rdfs:label ?searchLabel. 
+            fullTextSearch: {
+                prefix: 'PREFIX bds: <http://www.bigdata.com/rdf/search#>' + '\n',
+                queryPattern: `
+              ?inst rdfs:label ?searchLabel.
               SERVICE bds:search {
                      ?searchLabel bds:search "\${text}*" ;
                                   bds:minRelevance '0.5' ;
-                                  
+
                                   bds:matchAllTerms 'true';
                                   bds:relevance ?score.
               }
@@ -54,8 +54,8 @@ function onWorkspaceMounted(workspace: Workspace) {
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
     ref: onWorkspaceMounted,
     onSaveDiagram: workspace => {
-        const {layoutData} = workspace.getModel().exportLayout();
-        window.location.hash = saveLayoutToLocalStorage(layoutData);
+        const diagram = workspace.getModel().exportLayout();
+        window.location.hash = saveLayoutToLocalStorage(diagram);
         window.location.reload();
     },
     viewOptions: {

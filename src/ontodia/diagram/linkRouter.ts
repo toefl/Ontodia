@@ -1,7 +1,7 @@
 import { LinkRouter, RoutedLinks, Vertex } from '../customization/props';
 import { DiagramModel } from './model';
 import { Link as DiagramLink, Element as DiagramElement } from './elements';
-import { Vector, normalize } from './geometry';
+import { Vector } from './geometry';
 
 export class DefaultLinkRouter implements LinkRouter {
     constructor(private gap = 20) {}
@@ -66,7 +66,7 @@ export class DefaultLinkRouter implements LinkRouter {
             x: (sourceCenter.x + targetCenter.x) / 2,
             y: (sourceCenter.y + targetCenter.y) / 2,
         };
-        const direction = normalize({
+        const direction = Vector.normalize({
             x: targetCenter.x - sourceCenter.x,
             y: targetCenter.y - sourceCenter.y,
         });
@@ -143,7 +143,7 @@ function hasUserPlacedVertices(link: DiagramLink) {
     return vertices && vertices.length > 0;
 }
 
-function centerOfElement(element: DiagramElement): { x: number; y: number; } {
+function centerOfElement(element: DiagramElement): Vector {
     const {x, y} = element.position;
     const {width, height} = element.size;
     return {x: x + width / 2, y: y + height / 2};

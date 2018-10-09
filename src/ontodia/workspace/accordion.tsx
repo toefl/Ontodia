@@ -5,7 +5,7 @@ import { AccordionItem, Props as ItemProps } from './accordionItem';
 export interface Props {
     onStartResize?: () => void;
     /** AccordionItem[] */
-    children?: React.ReactElement<ItemProps>[];
+    children?: React.ReactElement<ItemProps> | ReadonlyArray<React.ReactElement<ItemProps>>;
 }
 
 export interface State {
@@ -13,11 +13,11 @@ export interface State {
     /**
      * Items' sizes in pixels.
      * Undefined until first resize or toggle initiated by user.
-     **/
+     */
     readonly sizes?: number[];
     /**
      * Items' sizes in percent.
-     **/
+     */
     readonly percents?: string[];
     /**
      * Per-item collapsed state: true if corresponding item is collapsed;
@@ -59,7 +59,7 @@ export class Accordion extends React.Component<Props, State> {
 
     private setHeight = () => {
         this.setState({height: this.element.parentElement.clientHeight});
-    };
+    }
 
     render() {
         const {resizing, height} = this.state;
@@ -75,8 +75,11 @@ export class Accordion extends React.Component<Props, State> {
         const {sizes, percents, collapsed} = this.state;
         const {children} = this.props;
 
-        return React.Children.map(children, (child: React.ReactElement<ItemProps>, index: number) => {
-            const lastChild = index === children.length - 1;
+        return React.Children.map(children, (child, index) => {
+            if (typeof child !== 'object') {
+                throw new Error('Accordion should have only AccordionItem elements as children');
+            }
+            const lastChild = index === React.Children.count(children) - 1;
             const height = collapsed[index] ? sizes[index] : percents[index];
 
             const additionalProps: Partial<ItemProps> & React.Props<AccordionItem> = {

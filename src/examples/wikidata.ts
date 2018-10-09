@@ -56,13 +56,13 @@ function wikidataSuggestProperties(params: PropertySuggestionParams) {
         }
     }).then(json => {
         const dictionary: { [id: string]: PropertyScore } = {};
-        for (const term of json.data) {
-            const propertyIri = idMap[term.id];
+        for (const scoredItem of json.data) {
+            const propertyIri = idMap[scoredItem.id];
             const item = dictionary[propertyIri];
 
-            if (item && item.score > term.value) { continue; }
+            if (item && item.score > scoredItem.value) { continue; }
 
-            dictionary[propertyIri] = {propertyIri, score: term.value};
+            dictionary[propertyIri] = {propertyIri, score: scoredItem.value};
         }
 
         Object.keys(idMap).forEach(key => {
@@ -82,9 +82,9 @@ function onWorkspaceMounted(wspace: Workspace) {
 
     workspace = wspace;
 
-    const layoutData = tryLoadLayoutFromLocalStorage();
+    const diagram = tryLoadLayoutFromLocalStorage();
     const dataProvider = new SparqlDataProvider({
-        endpointUrl: '/sparql-endpoint',
+        endpointUrl: '/wikidata',
         imagePropertyUris: [
             'http://www.wikidata.org/prop/direct/P18',
             'http://www.wikidata.org/prop/direct/P154',
@@ -92,14 +92,14 @@ function onWorkspaceMounted(wspace: Workspace) {
         queryMethod: SparqlQueryMethod.POST,
     }, WikidataSettings);
 
-    workspace.getModel().importLayout({layoutData, dataProvider, validateLinks: true});
+    workspace.getModel().importLayout({diagram, dataProvider, validateLinks: true});
 }
 
 const props: WorkspaceProps & ClassAttributes<Workspace> = {
     ref: onWorkspaceMounted,
-    onSaveDiagram: workspace => {
-        const {layoutData} = workspace.getModel().exportLayout();
-        window.location.hash = saveLayoutToLocalStorage(layoutData);
+    onSaveDiagram: self => {
+        const diagram = self.getModel().exportLayout();
+        window.location.hash = saveLayoutToLocalStorage(diagram);
         window.location.reload();
     },
     viewOptions: {

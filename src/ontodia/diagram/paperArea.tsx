@@ -1,23 +1,24 @@
 import * as React from 'react';
-import { ReactElement } from 'react';
 
 import { Debouncer } from '../viewUtils/async';
 import { EventObserver, Events, EventSource, PropertyChange } from '../viewUtils/events';
-import { Spinner, Props as SpinnerProps } from '../viewUtils/spinner';
+import { PropTypes } from '../viewUtils/react';
 import { ToSVGOptions, ToDataURLOptions, toSVG, toDataURL, fitRectKeepingAspectRatio } from '../viewUtils/toSvg';
 
-import { Element, Link } from './elements';
-import { ElementLayer } from './elementLayer';
+import { RestoreGeometry } from './commands';
+import { Element, Link, Cell, LinkVertex } from './elements';
 import { Vector, computePolyline, findNearestSegmentIndex } from './geometry';
-import { DiagramModel } from './model';
-import { DiagramView, RenderingLayer } from './view';
-import { Paper, Cell, LinkVertex, isLinkVertex } from './paper';
+import { Batch } from './history';
+import { DiagramView, RenderingLayer, WidgetDescription } from './view';
+import { Paper, PaperTransform } from './paper';
 
 export interface Props {
     view: DiagramView;
     zoomOptions?: ZoomOptions;
-    panningRequireModifiers?: boolean;
-    onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number; }) => void;
+    hideScrollBars?: boolean;
+    watermarkSvg?: string;
+    watermarkUrl?: string;
+    onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number }) => void;
     onZoom?: (scaleX: number, scaleY: number) => void;
 }
 
@@ -28,10 +29,11 @@ export interface ZoomOptions {
     /** Used when zooming to fit to limit zoom of small diagrams */
     maxFit?: number;
     fitPadding?: number;
+    requireCtrl?: boolean;
 }
 
 export interface ScaleOptions {
-    pivot?: { x: number; y: number; };
+    pivot?: { x: number; y: number };
 }
 
 export interface PaperAreaEvents {
@@ -53,6 +55,7 @@ export interface PointerUpEvent extends PointerEvent {
 
 export interface PaperWidgetProps {
     paperArea?: PaperArea;
+    paperTransform?: PaperTransform;
 }
 
 export interface State {
@@ -63,8 +66,21 @@ export interface State {
     readonly scale?: number;
     readonly paddingX?: number;
     readonly paddingY?: number;
-    readonly renderedWidgets?: ReadonlyArray<ReactElement<any>>;
+    readonly renderedWidgets?: ReadonlyArray<WidgetDescription>;
 }
+
+export interface PaperAreaContextWrapper {
+    ontodiaPaperArea: PaperAreaContext;
+}
+
+export interface PaperAreaContext {
+    paperArea: PaperArea;
+    view: DiagramView;
+}
+
+export const PaperAreaContextTypes: { [K in keyof PaperAreaContextWrapper]: any } = {
+    ontodiaPaperArea: PropTypes.anything,
+};
 
 interface PointerMoveState {
     pointerMoved: boolean;
@@ -74,23 +90,28 @@ interface PointerMoveState {
         readonly pageX: number;
         readonly pageY: number;
     };
+    batch: Batch;
+    restoreGeometry: RestoreGeometry;
 }
 
 const CLASS_NAME = 'ontodia-paper-area';
 const LEFT_MOUSE_BUTTON = 0;
 
 export class PaperArea extends React.Component<Props, State> {
+    static childContextTypes = PaperAreaContextTypes;
+
     private readonly listener = new EventObserver();
     private readonly source = new EventSource<PaperAreaEvents>();
     readonly events: Events<PaperAreaEvents> = this.source;
 
+    private outer: HTMLDivElement;
     private area: HTMLDivElement;
-    private widgets: { [key: string]: ReactElement<any> } = {};
+    private widgets: { [key: string]: WidgetDescription } = {};
 
     private readonly pageSize = {x: 1500, y: 800};
 
     private movingState: PointerMoveState | undefined;
-    private panningScrollOrigin: { scrollLeft: number; scrollTop: number; };
+    private panningScrollOrigin: { scrollLeft: number; scrollTop: number };
     private movingElementOrigin: {
         pointerX: number;
         pointerY: number;
@@ -106,9 +127,9 @@ export class PaperArea extends React.Component<Props, State> {
 
     private get zoomOptions(): ZoomOptions {
         const {
-            min = 0.2, max = 2, step = 0.1, maxFit = 1, fitPadding = 20,
+            min = 0.2, max = 2, step = 0.1, maxFit = 1, fitPadding = 20, requireCtrl = true,
         } = this.props.zoomOptions || {};
-        return {min, max, step, maxFit, fitPadding};
+        return {min, max, step, maxFit, fitPadding, requireCtrl};
     }
 
     constructor(props: Props, context: any) {
@@ -125,38 +146,56 @@ export class PaperArea extends React.Component<Props, State> {
         };
     }
 
-    render() {
+    getChildContext(): PaperAreaContextWrapper {
         const {view} = this.props;
+        const ontodiaPaperArea: PaperAreaContext = {paperArea: this, view};
+        return {ontodiaPaperArea};
+    }
+
+    render() {
+        const {view, watermarkSvg, watermarkUrl} = this.props;
         const {paperWidth, paperHeight, originX, originY, scale, paddingX, paddingY, renderedWidgets} = this.state;
-        const paperTransformStyle = {
-            position: 'absolute', left: 0, top: 0,
-            transform: `scale(${scale},${scale})translate(${originX}px,${originY}px)`,
+        const paperTransform: PaperTransform = {
+            width: paperWidth, height: paperHeight,
+            originX, originY, scale, paddingX, paddingY,
         };
+        const widgetProps: PaperWidgetProps = {paperArea: this, paperTransform};
+
+        let areaClass = `${CLASS_NAME}__area`;
+        if (this.props.hideScrollBars) {
+            areaClass += ` ${CLASS_NAME}--hide-scrollbars`;
+        }
+
         return (
-            <div className={CLASS_NAME}
-                ref={area => this.area = area}
-                onMouseDown={this.onAreaPointerDown}
-                onWheel={this.onWheel}>
-                <Paper view={view}
-                    width={paperWidth}
-                    height={paperHeight}
-                    originX={originX}
-                    originY={originY}
-                    scale={scale}
-                    paddingX={paddingX}
-                    paddingY={paddingY}
-                    onPointerDown={this.onPaperPointerDown}>
-                    <ElementLayer view={view} scale={scale} style={paperTransformStyle} />
-                    <div className={`${CLASS_NAME}__widgets`} onMouseDown={this.onWidgetsMouseDown}>
-                        {renderedWidgets.map(widget => {
-                            const props: PaperWidgetProps = {paperArea: this};
-                            return React.cloneElement(widget, props);
-                        })}
-                    </div>
-                </Paper>
+            <div className={CLASS_NAME} ref={this.onOuterMount}>
+                <div className={areaClass}
+                    ref={this.onAreaMount}
+                    onMouseDown={this.onAreaPointerDown}
+                    onWheel={this.onWheel}>
+                    <Paper view={view}
+                        paperTransform={paperTransform}
+                        onPointerDown={this.onPaperPointerDown}>
+                        <div className={`${CLASS_NAME}__widgets`} onMouseDown={this.onWidgetsMouseDown}>
+                            {renderedWidgets.filter(w => !w.pinnedToScreen).map(widget => {
+                                return React.cloneElement(widget.element, widgetProps);
+                            })}
+                        </div>
+                    </Paper>
+                    {watermarkSvg ? (
+                        <a href={watermarkUrl} target='_blank' rel='noopener'>
+                            <img className={`${CLASS_NAME}__watermark`} src={watermarkSvg} draggable={false} />
+                        </a>
+                    ) : null}
+                </div>
+                {renderedWidgets.filter(w => w.pinnedToScreen).map(widget => {
+                    return React.cloneElement(widget.element, widgetProps);
+                })}
             </div>
         );
     }
+
+    private onOuterMount = (outer: HTMLDivElement) => { this.outer = outer; };
+    private onAreaMount = (area: HTMLDivElement) => { this.area = area; };
 
     componentDidMount() {
         this.adjustPaper(() => this.centerTo());
@@ -184,17 +223,6 @@ export class PaperArea extends React.Component<Props, State> {
 
         this.area.addEventListener('dragover', this.onDragOver);
         this.area.addEventListener('drop', this.onDragDrop);
-
-        this.listener.listen(view.model.events, 'loadingStart', () => this.showIndicator());
-        this.listener.listen(view.model.events, 'loadingError', ({error}) => {
-            this.updateWidgets({[LoadingWidget.Key]: undefined});
-            this.renderSpinner({statusText: error.message, errorOccured: true});
-        });
-        this.listener.listen(view.model.events, 'loadingSuccess', () => {
-            this.updateWidgets({[LoadingWidget.Key]: undefined});
-            view.performSyncUpdate();
-            this.centerContent();
-        });
     }
 
     componentDidUpdate(prevProps: Props, prevState: State) {
@@ -220,12 +248,15 @@ export class PaperArea extends React.Component<Props, State> {
         this.area.removeEventListener('drop', this.onDragDrop);
     }
 
-    private updateWidgets(update: { [key: string]: ReactElement<any> }) {
+    private updateWidgets(update: { [key: string]: WidgetDescription }) {
         this.widgets = {...this.widgets, ...update};
-        const renderedWidgets = Object.keys(this.widgets).map(key => {
-            const widget = this.widgets[key];
-            return widget ? React.cloneElement(widget, {key}) : undefined;
-        }).filter(widget => widget !== undefined);
+        const renderedWidgets = Object.keys(this.widgets)
+            .filter(key => this.widgets[key])
+            .map(key => {
+                const widget = this.widgets[key];
+                const element = React.cloneElement(widget.element, {key});
+                return {...widget, element};
+            });
         this.setState({renderedWidgets});
     }
 
@@ -275,12 +306,17 @@ export class PaperArea extends React.Component<Props, State> {
     }
 
     /** Returns paper size in paper coordinates. */
-    getPaperSize(): { width: number; height: number; } {
+    getPaperSize(): { width: number; height: number } {
         const {paperWidth: width, paperHeight: height, scale} = this.state;
         return {width: width / scale, height: height / scale};
     }
 
-    computeAdjustedBox(): Partial<State> {
+    getAreaMetrics() {
+        const {clientWidth, clientHeight, offsetWidth, offsetHeight} = this.area;
+        return {clientWidth, clientHeight, offsetWidth, offsetHeight};
+    }
+
+    private computeAdjustedBox(): Partial<State> {
         // bbox in paper coordinates
         const bbox = this.getContentFittingBox();
         const bboxLeft = bbox.x;
@@ -312,8 +348,8 @@ export class PaperArea extends React.Component<Props, State> {
         const {clientWidth, clientHeight} = this.area;
         const adjusted: Partial<State> = {
             ...this.computeAdjustedBox(),
-            paddingX: Math.ceil(clientWidth * 0.75),
-            paddingY: Math.ceil(clientHeight * 0.75),
+            paddingX: Math.ceil(clientWidth),
+            paddingY: Math.ceil(clientHeight),
         };
         const previous = this.state;
         const samePaperProps = (
@@ -335,35 +371,33 @@ export class PaperArea extends React.Component<Props, State> {
         }
     }
 
+    private shouldStartZooming(e: MouseEvent | React.MouseEvent<any>) {
+        return Boolean(e.ctrlKey) && Boolean(this.zoomOptions.requireCtrl) || !this.zoomOptions.requireCtrl;
+    }
+
     private shouldStartPanning(e: MouseEvent | React.MouseEvent<any>) {
-        const modifierPressed = e.ctrlKey || e.shiftKey;
-        return e.button === LEFT_MOUSE_BUTTON
-            && Boolean(modifierPressed) === Boolean(this.props.panningRequireModifiers);
+        const modifierPressed = e.ctrlKey || e.shiftKey || e.altKey;
+        return e.button === LEFT_MOUSE_BUTTON && !modifierPressed;
     }
 
     private onPaperPointerDown = (e: React.MouseEvent<HTMLElement>, cell: Cell | undefined) => {
         if (this.movingState) { return; }
 
+        const restore = RestoreGeometry.capture(this.props.view.model);
+        const batch = this.props.view.model.history.startBatch(restore.title);
+
         if (cell && e.button === LEFT_MOUSE_BUTTON) {
             if (cell instanceof Element) {
                 e.preventDefault();
                 this.startMoving(e, cell);
-                this.listenToPointerMove(e, cell);
-            } else if (cell instanceof Link) {
+                this.listenToPointerMove(e, cell, batch, restore);
+            } else {
                 e.preventDefault();
-                const location = this.pageToPaperCoords(e.pageX, e.pageY);
-                const vertexIndex = this.createLinkVertex(cell, location);
-                const targetCell = {link: cell, vertexIndex};
-                this.listenToPointerMove(e, targetCell);
-                // prevent click on newly created vertex
-                this.movingState.pointerMoved = true;
-            } else if (isLinkVertex(cell)) {
-                e.preventDefault();
-                this.listenToPointerMove(e, cell);
+                this.listenToPointerMove(e, cell, batch, restore);
             }
         } else {
             e.preventDefault();
-            this.listenToPointerMove(e, undefined);
+            this.listenToPointerMove(e, undefined, batch, restore);
         }
     }
 
@@ -395,8 +429,7 @@ export class PaperArea extends React.Component<Props, State> {
         }
     }
 
-    /** @returns created vertex index */
-    private createLinkVertex(link: Link, location: Vector) {
+    private generateLinkVertex(link: Link, location: Vector): LinkVertex {
         const previous = link.vertices;
         const vertices = previous ? [...previous] : [];
         const model = this.props.view.model;
@@ -406,12 +439,15 @@ export class PaperArea extends React.Component<Props, State> {
             vertices,
         );
         const segmentIndex = findNearestSegmentIndex(polyline, location);
-        vertices.splice(segmentIndex, 0, location);
-        link.setVertices(vertices);
-        return segmentIndex;
+        return new LinkVertex(link, segmentIndex);
     }
 
-    private listenToPointerMove(event: React.MouseEvent<any>, cell: Cell | undefined) {
+    private listenToPointerMove(
+        event: React.MouseEvent<any>,
+        cell: Cell | undefined,
+        batch: Batch,
+        restoreGeometry: RestoreGeometry,
+    ) {
         if (this.movingState) { return; }
         const panning = cell === undefined && this.shouldStartPanning(event);
         if (panning) {
@@ -423,6 +459,8 @@ export class PaperArea extends React.Component<Props, State> {
             target: cell,
             panning,
             pointerMoved: false,
+            batch,
+            restoreGeometry,
         };
         document.addEventListener('mousemove', this.onPointerMove);
         document.addEventListener('mouseup', this.stopListeningToPointerMove);
@@ -450,19 +488,20 @@ export class PaperArea extends React.Component<Props, State> {
         } else if (target instanceof Element) {
             const {x, y} = this.pageToPaperCoords(e.pageX, e.pageY);
             const {pointerX, pointerY, elementX, elementY} = this.movingElementOrigin;
-            const previous = target.position;
             target.setPosition({
                 x: elementX + x - pointerX,
                 y: elementY + y - pointerY,
             });
             this.source.trigger('pointerMove', {source: this, sourceEvent: e, target, panning});
             this.props.view.performSyncUpdate();
-        } else if (isLinkVertex(target)) {
-            const {link, vertexIndex} = target;
+        } else if (target instanceof Link) {
             const location = this.pageToPaperCoords(e.pageX, e.pageY);
-            const vertices = [...link.vertices];
-            vertices.splice(vertexIndex, 1, location);
-            link.setVertices(vertices);
+            const linkVertex = this.generateLinkVertex(target, location);
+            linkVertex.createAt(location);
+            this.movingState.target = linkVertex;
+        } else if (target instanceof LinkVertex) {
+            const location = this.pageToPaperCoords(e.pageX, e.pageY);
+            target.moveTo(location);
             this.source.trigger('pointerMove', {source: this, sourceEvent: e, target, panning});
             this.props.view.performSyncUpdate();
         }
@@ -478,26 +517,33 @@ export class PaperArea extends React.Component<Props, State> {
         }
 
         if (e && movingState) {
+            const {pointerMoved, target, batch, restoreGeometry} = movingState;
             this.source.trigger('pointerUp', {
                 source: this,
                 sourceEvent: e,
-                target: movingState.target,
+                target,
                 panning: movingState.panning,
-                triggerAsClick: !movingState.pointerMoved,
+                triggerAsClick: !pointerMoved,
             });
+
+            const restore = restoreGeometry.filterOutUnchanged();
+            if (restore.hasChanges()) {
+                batch.history.registerToUndo(restore);
+            }
+            batch.store();
         }
     }
 
     private onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-        if (e.ctrlKey) {
+        if (this.shouldStartZooming(e)) {
             e.preventDefault();
-            const delta = Math.max(-1, Math.min(1, e.deltaY));
+            const delta = Math.max(-1, Math.min(1, e.deltaY || e.deltaX));
             const pivot = this.pageToPaperCoords(e.pageX, e.pageY);
             this.zoomBy(-delta * 0.1, {pivot});
         }
     }
 
-    centerTo(paperPosition?: { x: number; y: number; }) {
+    centerTo(paperPosition?: { x: number; y: number }) {
         const {paperWidth, paperHeight, scale, originX, originY, paddingX, paddingY} = this.state;
         const paperCenter = paperPosition || {x: paperWidth / 2, y: paperHeight / 2};
         const clientCenterX = (paperCenter.x + originX) * scale;
@@ -528,7 +574,7 @@ export class PaperArea extends React.Component<Props, State> {
 
         const center = this.clientToPaperCoords(
             this.area.clientWidth / 2, this.area.clientHeight / 2);
-        let pivot: { x: number; y: number; };
+        let pivot: { x: number; y: number };
         if (options.pivot) {
             const {x, y} = options.pivot;
             const previousScale = this.state.scale;
@@ -576,9 +622,9 @@ export class PaperArea extends React.Component<Props, State> {
         );
 
         let scale = width / bbox.width;
-        const {min, max} = this.zoomOptions;
+        const {min, maxFit} = this.zoomOptions;
         scale = Math.max(scale, min);
-        scale = Math.min(scale, max);
+        scale = Math.min(scale, maxFit);
 
         this.setState({scale}, () => {
             this.centerContent();
@@ -604,35 +650,20 @@ export class PaperArea extends React.Component<Props, State> {
         }
     }
 
-    private renderSpinner(props: SpinnerProps = {}) {
-        this.updateWidgets({
-            [LoadingWidget.Key]: <LoadingWidget spinnerProps={props} />,
-        });
-    }
-
-    showIndicator(operation?: Promise<any>) {
-        this.centerTo();
-        this.renderSpinner();
-
-        if (operation) {
-            operation.then(() => {
-                this.updateWidgets({[LoadingWidget.Key]: undefined});
-            }).catch(error => {
-                console.error(error);
-                this.renderSpinner({statusText: 'Unknown error occured', errorOccured: true});
-            });
-        }
-    }
-
     private makeToSVGOptions(): ToSVGOptions {
+        const svg = this.area.querySelector('.ontodia-paper__canvas');
+        if (!svg) {
+            throw new Error('Cannot find SVG canvas to export');
+        }
         return {
             model: this.props.view.model,
-            paper: this.area.querySelector('svg'),
+            paper: svg as SVGSVGElement,
             contentBox: this.getContentFittingBox(),
             getOverlayedElement: id => this.area.querySelector(`[data-element-id='${id}']`) as HTMLElement,
             preserveDimensions: true,
             convertImagesToDataUris: true,
             elementsToRemoveSelector: '.ontodia-link__vertex-tools',
+            watermarkSvg: this.props.watermarkSvg,
         };
     }
 
@@ -656,35 +687,9 @@ function clientCoordsFor(container: HTMLElement, e: MouseEvent) {
     };
 }
 
-interface LoadingWidgetProps extends PaperWidgetProps {
-    spinnerProps: Partial<SpinnerProps>;
-}
-
-class LoadingWidget extends React.Component<LoadingWidgetProps, {}> {
-    static readonly Key = 'loadingWidget';
-
-    render() {
-        const {spinnerProps, paperArea} = this.props;
-
-        const paperSize = paperArea.getPaperSize();
-        const paneStart = paperArea.paperToScrollablePaneCoords(0, 0);
-        const paneEnd = paperArea.paperToScrollablePaneCoords(paperSize.width, paperSize.height);
-        const paneWidth = paneEnd.x - paneStart.x;
-        const paneHeight = paneEnd.y - paneStart.y;
-
-        const x = spinnerProps.statusText ? paneWidth / 3 : paneWidth / 2;
-        const position = {x, y: paneHeight / 2};
-        return (
-            <svg width={paneWidth} height={paneHeight}>
-                <Spinner position={position} {...spinnerProps} />
-            </svg>
-        );
-    }
-}
-
 export function getContentFittingBox(
     elements: ReadonlyArray<Element>, links: ReadonlyArray<Link>
-): { x: number; y: number; width: number; height: number; } {
+): { x: number; y: number; width: number; height: number } {
     let minX = Infinity, minY = Infinity;
     let maxX = -Infinity, maxY = -Infinity;
 

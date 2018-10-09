@@ -1,41 +1,64 @@
 import { Component, createElement, ReactElement, cloneElement } from 'react';
 import * as ReactDOM from 'react-dom';
+import * as saveAs from 'file-saverjs';
 
+import { MetadataApi } from '../data/metadataApi';
+import { ValidationApi } from '../data/validationApi';
+
+import { RestoreGeometry } from '../diagram/commands';
 import { Element, Link, FatLinkType } from '../diagram/elements';
-import { boundsOf } from '../diagram/geometry';
-import { DiagramModel } from '../diagram/model';
+import { boundsOf, computeGrouping } from '../diagram/geometry';
+import { Batch, Command, CommandHistory, NonRememberingHistory } from '../diagram/history';
 import { PaperArea, ZoomOptions, PointerEvent, PointerUpEvent, getContentFittingBox } from '../diagram/paperArea';
-import { DiagramView, DiagramViewOptions } from '../diagram/view';
+import { DiagramView, ViewOptions } from '../diagram/view';
+
+import { AsyncModel, GroupBy } from '../editor/asyncModel';
+import {
+    EditorController, EditorOptions, PropertyEditor, recursiveForceLayout,
+} from '../editor/editorController';
+import { AuthoringState } from '../editor/authoringState';
 
 import { EventObserver } from '../viewUtils/events';
-import {
-    forceLayout, removeOverlaps, padded, translateToPositiveQuadrant,
-    LayoutNode, LayoutLink, translateToCenter,
-} from '../viewUtils/layout';
 import { dataURLToBlob } from '../viewUtils/toSvg';
 
 import { ClassTree } from '../widgets/classTree';
+import { PropertySuggestionHandler } from '../widgets/connectionsMenu';
 import { SearchCriteria } from '../widgets/instancesSearch';
 
-import { DefaultToolbar, ToolbarProps as DefaultToolbarProps } from './toolbar';
+import { DefaultToolbar, ToolbarProps } from './toolbar';
 import { showTutorial, showTutorialIfNotSeen } from './tutorial';
-import { WorkspaceMarkup, Props as MarkupProps } from './workspaceMarkup';
+import { WorkspaceMarkup, WorkspaceMarkupProps } from './workspaceMarkup';
+import { WorkspaceEventHandler, WorkspaceEventKey } from './workspaceContext';
 
-const saveAs = require<(file: Blob, fileName: string) => void>('file-saverjs');
+const ONTODIA_WEBSITE = 'https://ontodia.org/';
+const ONTODIA_LOGO_SVG = require<string>('../../../images/ontodia-logo.svg');
+
 export interface WorkspaceProps {
+    /** Saves diagram layout (position and state of elements and links). */
     onSaveDiagram?: (workspace: Workspace) => void;
-    onShareDiagram?: (workspace: Workspace) => void;
-    onEditAtMainSite?: (workspace: Workspace) => void;
+    /** Persists authored changes in the editor. */
+    onPersistChanges?: (workspace: Workspace) => void;
     onPointerDown?: (e: PointerEvent) => void;
     onPointerMove?: (e: PointerEvent) => void;
     onPointerUp?: (e: PointerUpEvent) => void;
+
+    /**
+     * Custom toolbar to replace the default one.
+     */
+    toolbar?: ReactElement<any>;
+    /** @default false */
     hidePanels?: boolean;
+    /** @default false */
     hideToolbar?: boolean;
+    /** @default false */
+    hideScrollBars?: boolean;
+    /** @default false */
     hideHalo?: boolean;
-    isDiagramSaved?: boolean;
+    /** @default true */
     hideTutorial?: boolean;
-    viewOptions?: DiagramViewOptions;
+    /** @default true */
     leftPanelInitiallyOpen?: boolean;
+    /** @default false */
     rightPanelInitiallyOpen?: boolean;
 
     /**
@@ -53,9 +76,26 @@ export interface WorkspaceProps {
      * otherwise language selection will function in uncontrolled mode.
      */
     onLanguageChange?: (language: string) => void;
+
     zoomOptions?: ZoomOptions;
     onZoom?: (scaleX: number, scaleY: number) => void;
-    toolbar?: ReactElement<any>;
+
+    history?: CommandHistory;
+    viewOptions?: DiagramViewOptions;
+
+    /**
+     * If provided, switches editor into "authoring mode".
+     */
+    metadataApi?: MetadataApi;
+    validationApi?: ValidationApi;
+    propertyEditor?: PropertyEditor;
+    onWorkspaceEvent?: WorkspaceEventHandler;
+}
+
+export interface DiagramViewOptions extends ViewOptions {
+    groupBy?: GroupBy[];
+    disableDefaultHalo?: boolean;
+    suggestProperties?: PropertySuggestionHandler;
 }
 
 export interface WorkspaceLanguage {
@@ -83,73 +123,77 @@ export class Workspace extends Component<WorkspaceProps, State> {
 
     private readonly listener = new EventObserver();
 
-    private readonly model: DiagramModel;
-    private readonly diagram: DiagramView;
+    private readonly model: AsyncModel;
+    private readonly view: DiagramView;
+    private readonly editor: EditorController;
 
     private markup: WorkspaceMarkup;
     private tree: ClassTree;
 
+    private _watermarkSvg: string | undefined = ONTODIA_LOGO_SVG;
+    private _watermarkUrl: string | undefined = ONTODIA_WEBSITE;
+
     constructor(props: WorkspaceProps) {
         super(props);
-        this.model = new DiagramModel();
-        const viewOptions = {...this.props.viewOptions, disableDefaultHalo: this.props.hideHalo};
-        this.diagram = new DiagramView(this.model, viewOptions);
-        this.diagram.setLanguage(this.props.language);
+
+        const {
+            hideHalo, language, history, viewOptions = {},
+            metadataApi, validationApi, propertyEditor,
+        } = this.props;
+        const {
+            templatesResolvers, linkTemplateResolvers, typeStyleResolvers, linkRouter, onIriClick,
+            disableDefaultHalo, suggestProperties, groupBy,
+        } = viewOptions;
+
+        this.model = new AsyncModel(
+            history || new NonRememberingHistory(),
+            groupBy || [],
+        );
+        this.view = new DiagramView(this.model, {
+            templatesResolvers,
+            linkTemplateResolvers,
+            typeStyleResolvers,
+            linkRouter,
+            onIriClick,
+        });
+        this.editor = new EditorController({
+            model: this.model,
+            view: this.view,
+            disableHalo: hideHalo || disableDefaultHalo,
+            suggestProperties,
+            validationApi,
+            propertyEditor,
+        });
+        this.editor.setMetadataApi(metadataApi);
+
+        this.view.setLanguage(this.props.language);
         this.state = {
             isLeftPanelOpen: this.props.leftPanelInitiallyOpen,
             isRightPanelOpen: this.props.rightPanelInitiallyOpen,
         };
     }
 
-    componentWillReceiveProps(nextProps: WorkspaceProps) {
-        if (nextProps.language !== this.diagram.getLanguage()) {
-            this.diagram.setLanguage(nextProps.language);
-        }
-    }
-
     _getPaperArea(): PaperArea | undefined {
         return this.markup ? this.markup.paperArea : undefined;
     }
 
-    private getToolbar = () => {
-        const {languages, onSaveDiagram, hidePanels, toolbar} = this.props;
-        return cloneElement(
-            toolbar || createElement<DefaultToolbarProps>(DefaultToolbar), {
-                onZoomIn: this.zoomIn,
-                onZoomOut: this.zoomOut,
-                onZoomToFit: this.zoomToFit,
-                onPrint: this.print,
-                onExportSVG: this.exportSvg,
-                onExportPNG: this.exportPng,
-                onSaveDiagram: onSaveDiagram ? () => onSaveDiagram(this) : undefined,
-                onForceLayout: () => {
-                    this.forceLayout();
-                    this.zoomToFit();
-                },
-                languages,
-                selectedLanguage: this.diagram.getLanguage(),
-                onChangeLanguage: this.changeLanguage,
-                onShowTutorial: this.showTutorial,
-                hidePanels,
-                isLeftPanelOpen: this.state.isLeftPanelOpen,
-                onLeftPanelToggle: () => {
-                    this.setState(prevState => ({isLeftPanelOpen: !prevState.isLeftPanelOpen}));
-                },
-                isRightPanelOpen: this.state.isRightPanelOpen,
-                onRightPanelToggle: () => {
-                    this.setState(prevState => ({isRightPanelOpen: !prevState.isRightPanelOpen}));
-                },
-            },
-        );
+    _setWatermark(watermarkSvg: string | undefined, watermarkUrl: string | undefined) {
+        this._watermarkSvg = watermarkSvg;
+        this._watermarkUrl = watermarkUrl;
+        this.forceUpdate();
     }
 
     render(): ReactElement<any> {
-        const {languages, toolbar, hidePanels, hideToolbar, onSaveDiagram} = this.props;
+        const {languages, toolbar, hidePanels, hideToolbar, metadataApi, hideScrollBars, onWorkspaceEvent} = this.props;
         return createElement(WorkspaceMarkup, {
             ref: markup => { this.markup = markup; },
             hidePanels,
             hideToolbar,
-            view: this.diagram,
+            hideScrollBars,
+            model: this.model,
+            view: this.view,
+            editor: this.editor,
+            metadataApi,
             leftPanelInitiallyOpen: this.props.leftPanelInitiallyOpen,
             rightPanelInitiallyOpen: this.props.rightPanelInitiallyOpen,
             searchCriteria: this.state.criteria,
@@ -160,12 +204,22 @@ export class Workspace extends Component<WorkspaceProps, State> {
             onToggleLeftPanel: isLeftPanelOpen => this.setState({isLeftPanelOpen}),
             isRightPanelOpen: this.state.isRightPanelOpen,
             onToggleRightPanel: isRightPanelOpen => this.setState({isRightPanelOpen}),
-            toolbar: this.getToolbar(),
-        } as MarkupProps & React.ClassAttributes<WorkspaceMarkup>);
+            toolbar: createElement(ToolbarWrapper, {workspace: this}),
+            onWorkspaceEvent,
+            watermarkSvg: this._watermarkSvg,
+            watermarkUrl: this._watermarkUrl,
+        } as WorkspaceMarkupProps & React.ClassAttributes<WorkspaceMarkup>);
     }
 
     componentDidMount() {
-        this.diagram._initializePaperComponents(this.markup.paperArea);
+        const {onWorkspaceEvent} = this.props;
+
+        this.editor._initializePaperComponents(this.markup.paperArea);
+
+        this.listener.listen(this.model.events, 'loadingSuccess', () => {
+            this.view.performSyncUpdate();
+            this.markup.paperArea.centerContent();
+        });
 
         this.listener.listen(this.model.events, 'elementEvent', ({key, data}) => {
             if (!data.requestedAddToFilter) { return; }
@@ -177,6 +231,9 @@ export class Workspace extends Component<WorkspaceProps, State> {
                     linkDirection: direction,
                 },
             });
+            if (onWorkspaceEvent) {
+                onWorkspaceEvent(WorkspaceEventKey.searchUpdateCriteria);
+            }
         });
 
         this.listener.listen(this.markup.paperArea.events, 'pointerUp', e => {
@@ -195,18 +252,41 @@ export class Workspace extends Component<WorkspaceProps, State> {
             }
         });
 
+        if (onWorkspaceEvent) {
+            this.listener.listen(this.editor.events, 'changeSelection', () =>
+                onWorkspaceEvent(WorkspaceEventKey.editorChangeSelection)
+            );
+            this.listener.listen(this.editor.events, 'toggleDialog', () =>
+                onWorkspaceEvent(WorkspaceEventKey.editorToggleDialog)
+            );
+            this.listener.listen(this.editor.events, 'addElements', () =>
+                onWorkspaceEvent(WorkspaceEventKey.editorAddElements)
+            );
+        }
+
         if (!this.props.hideTutorial) {
             showTutorialIfNotSeen();
         }
     }
 
+    componentWillReceiveProps(nextProps: WorkspaceProps) {
+        if (nextProps.language !== this.view.getLanguage()) {
+            this.view.setLanguage(nextProps.language);
+        }
+
+        if (nextProps.metadataApi !== this.editor.metadataApi) {
+            this.editor.setMetadataApi(nextProps.metadataApi);
+        }
+    }
+
     componentWillUnmount() {
         this.listener.stopListening();
-        this.diagram.dispose();
+        this.view.dispose();
     }
 
     getModel() { return this.model; }
-    getDiagram() { return this.diagram; }
+    getDiagram() { return this.view; }
+    getEditor() { return this.editor; }
 
     preventTextSelectionUntilMouseUp() { this.markup.preventTextSelection(); }
 
@@ -214,65 +294,44 @@ export class Workspace extends Component<WorkspaceProps, State> {
         this.markup.paperArea.zoomToFit();
     }
 
-    showWaitIndicatorWhile(promise: Promise<any>) {
-        this.markup.paperArea.showIndicator(promise);
+    clearAll = () => {
+        this.editor.removeItems([...this.model.elements]);
     }
 
-    private forceLayoutElements = (elements: Element[], group?: Element) => {
-        for (const element of elements) {
-            const nestedNodes = this.model.elements.filter(el => el.group === element.id);
-            if (nestedNodes.length > 0) {
-                this.forceLayoutElements(nestedNodes, element);
-            }
-        }
-
-        const nodes: LayoutNode[] = [];
-        const nodeById: { [id: string]: LayoutNode } = {};
-        for (const element of elements) {
-            const {x, y, width, height} = boundsOf(element);
-            const node: LayoutNode = {id: element.id, x, y, width, height};
-            nodeById[element.id] = node;
-            nodes.push(node);
-        }
-
-        const links: LayoutLink[] = [];
-        for (const link of this.model.links) {
-            if (!this.model.isSourceAndTargetVisible(link)) {
-                continue;
-            }
-            const source = this.model.sourceOf(link);
-            const target = this.model.targetOf(link);
-
-            const sourceNode = nodeById[source.id];
-            const targetNode = nodeById[target.id];
-
-            if (sourceNode && targetNode) {
-                links.push({source: sourceNode, target: targetNode});
-            }
-        }
-
-        forceLayout({nodes, links, preferredLinkLength: 200});
-        padded(nodes, {x: 10, y: 10}, () => removeOverlaps(nodes));
-
-        const padding: { x: number; y: number; } = (
-            group ? getContentFittingBox(elements, []) : {x: 150, y: 150}
-        );
-
-        translateToPositiveQuadrant({nodes, padding});
-
-        for (const node of nodes) {
-            this.model.getElement(node.id).setPosition({x: node.x, y: node.y});
+    showWaitIndicatorWhile(operation: Promise<any>) {
+        this.markup.paperArea.centerTo();
+        this.editor.setSpinner({});
+        if (operation) {
+            operation.then(() => {
+                this.editor.setSpinner(undefined);
+            }).catch(error => {
+                // tslint:disable-next-line:no-console
+                console.error(error);
+                this.editor.setSpinner({statusText: 'Unknown error occured', errorOccured: true});
+            });
         }
     }
 
     forceLayout = () => {
-        const elements = this.model.elements.filter(element => element.group === undefined);
-        this.forceLayoutElements(elements);
+        const batch = this.model.history.startBatch('Force layout');
+        batch.history.registerToUndo(this.makeSyncAndZoom());
+        batch.history.registerToUndo(RestoreGeometry.capture(this.model));
+
+        recursiveForceLayout({model: this.model});
+
         for (const link of this.model.links) {
             link.setVertices([]);
         }
 
-        this.diagram.performSyncUpdate();
+        batch.history.execute(this.makeSyncAndZoom());
+        batch.store();
+    }
+
+    private makeSyncAndZoom(): Command {
+        return Command.effect('Sync and zoom to fit', () => {
+            this.view.performSyncUpdate();
+            this.zoomToFit();
+        });
     }
 
     exportSvg = (fileName?: string) => {
@@ -293,11 +352,11 @@ export class Workspace extends Component<WorkspaceProps, State> {
     }
 
     undo = () => {
-        this.model.undo();
+        this.model.history.undo();
     }
 
     redo = () => {
-        this.model.redo();
+        this.model.history.redo();
     }
 
     zoomBy = (value: number) => {
@@ -316,6 +375,7 @@ export class Workspace extends Component<WorkspaceProps, State> {
         this.markup.paperArea.exportSVG().then(svg => {
             const printWindow = window.open('', undefined, 'width=1280,height=720');
             printWindow.document.write(svg);
+            printWindow.document.close();
             printWindow.print();
         });
     }
@@ -325,13 +385,13 @@ export class Workspace extends Component<WorkspaceProps, State> {
         if (this.props.onLanguageChange) {
             this.props.onLanguageChange(language);
         } else {
-            this.diagram.setLanguage(language);
+            this.view.setLanguage(language);
             // since we have toolbar dependent on language, we're forcing update here
             this.forceUpdate();
         }
     }
 
-    centerTo = (paperPosition?: { x: number; y: number; }) => {
+    centerTo = (paperPosition?: { x: number; y: number }) => {
         this.markup.paperArea.centerTo(paperPosition);
     }
 
@@ -340,12 +400,74 @@ export class Workspace extends Component<WorkspaceProps, State> {
     }
 }
 
-export function renderTo<WorkspaceProps>(
-    workspace: React.ComponentClass<WorkspaceProps>,
+interface ToolbarWrapperProps {
+    workspace: Workspace;
+}
+
+class ToolbarWrapper extends Component<ToolbarWrapperProps, {}> {
+    private readonly listener = new EventObserver();
+
+    render() {
+        const {workspace} = this.props;
+        const view = workspace.getDiagram();
+        const editor = workspace.getEditor();
+        const {languages, onSaveDiagram, onPersistChanges, hidePanels, toolbar, metadataApi} = workspace.props;
+
+        const canPersistChanges = onPersistChanges ? editor.authoringState.events.length > 0 : undefined;
+        const canSaveDiagram = !canPersistChanges;
+
+        const toolbarProps: ToolbarProps = {
+            onZoomIn: workspace.zoomIn,
+            onZoomOut: workspace.zoomOut,
+            onZoomToFit: workspace.zoomToFit,
+            onPrint: workspace.print,
+            onExportSVG: workspace.exportSvg,
+            onExportPNG: workspace.exportPng,
+            canSaveDiagram,
+            onSaveDiagram: onSaveDiagram ? () => onSaveDiagram(workspace) : undefined,
+            canPersistChanges,
+            onPersistChanges: onPersistChanges ? () => onPersistChanges(workspace) : undefined,
+            onForceLayout: () => {
+                workspace.forceLayout();
+                workspace.zoomToFit();
+            },
+            onClearAll: workspace.clearAll,
+            languages,
+            selectedLanguage: view.getLanguage(),
+            onChangeLanguage: workspace.changeLanguage,
+            onShowTutorial: workspace.showTutorial,
+            hidePanels,
+            isLeftPanelOpen: workspace.state.isLeftPanelOpen,
+            onLeftPanelToggle: () => {
+                workspace.setState(prevState => ({isLeftPanelOpen: !prevState.isLeftPanelOpen}));
+            },
+            isRightPanelOpen: workspace.state.isRightPanelOpen,
+            onRightPanelToggle: () => {
+                workspace.setState(prevState => ({isRightPanelOpen: !prevState.isRightPanelOpen}));
+            },
+        };
+        return toolbar
+            ? cloneElement(toolbar, toolbarProps)
+            : createElement(DefaultToolbar, toolbarProps);
+    }
+
+    componentDidMount() {
+        const {workspace} = this.props;
+        const editor = workspace.getEditor();
+        this.listener.listen(editor.events, 'changeAuthoringState', () => {
+            this.forceUpdate();
+        });
+    }
+
+    componentWillUnmount() {
+        this.listener.stopListening();
+    }
+}
+
+export function renderTo<WorkspaceComponentProps>(
+    workspace: React.ComponentClass<WorkspaceComponentProps>,
     container: HTMLElement,
-    props: WorkspaceProps,
+    props: WorkspaceComponentProps,
 ) {
     ReactDOM.render(createElement(workspace, props), container);
 }
-
-export default Workspace;
